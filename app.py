@@ -1,12 +1,12 @@
-# app.py - Streamlit app for MNIST Digit Generator
+# app.py - Gradio app for MNIST Digit Generator
 
-import streamlit as st
+import gradio as gr
 import torch
 import torch.nn as nn
 import numpy as np
-import matplotlib.pyplot as plt
 from PIL import Image
 import io
+import matplotlib.pyplot as plt
 
 # Define the same Generator architecture as in training
 class Generator(nn.Module):
@@ -48,236 +48,275 @@ class Generator(nn.Module):
         img = img.view(img.size(0), 1, self.img_size, self.img_size)
         return img
 
-# Initialize session state for random seed
-if 'random_seed' not in st.session_state:
-    st.session_state.random_seed = 42
-
 # Load the model
-@st.cache_resource
-def load_generator():
-    device = torch.device('cpu')  # Use CPU for deployment
-    generator = Generator(latent_dim=100, num_classes=10).to(device)
-    
-    # Load the trained weights
-    try:
-        generator.load_state_dict(torch.load('generator.pth', map_location=device))
-        generator.eval()
-        return generator, device
-    except FileNotFoundError:
-        st.error("⚠️ Model file 'generator.pth' not found! Please ensure it's in the same directory as this app.")
-        return None, device
+device = torch.device('cpu')
+generator = Generator(latent_dim=100, num_classes=10).to(device)
 
-# Generate digit images
-def generate_digit_images(generator, device, digit, num_images=5, seed=None):
-    """Generate multiple images of a specific digit"""
-    if seed is not None:
+try:
+    generator.load_state_dict(torch.load('generator.pth', map_location=device))
+    generator.eval()
+    model_loaded = True
+except FileNotFoundError:
+    model_loaded = False
+    print("Warning: generator.pth not found!")
+
+# Generate function for single digit
+def generate_single_digit(digit, seed):
+    if not model_loaded:
+        return None
+    
+    # Set seed if provided
+    if seed != -1:
         torch.manual_seed(seed)
         np.random.seed(seed)
     
     with torch.no_grad():
-        noise = torch.randn(num_images, 100).to(device)
-        labels = torch.full((num_images,), digit, dtype=torch.long).to(device)
-        fake_imgs = generator(noise, labels)
+        noise = torch.randn(1, 100).to(device)
+        label = torch.tensor([digit], dtype=torch.long).to(device)
+        generated_img = generator(noise, label)
         
-        # Denormalize images from [-1, 1] to [0, 1]
-        fake_imgs = fake_imgs * 0.5 + 0.5
-        fake_imgs = torch.clamp(fake_imgs, 0, 1)
+        # Denormalize from [-1, 1] to [0, 1]
+        generated_img = generated_img * 0.5 + 0.5
+        generated_img = torch.clamp(generated_img, 0, 1)
         
-        return fake_imgs.cpu().numpy()
+        # Convert to numpy and then PIL
+        img_numpy = generated_img.cpu().numpy()[0, 0]
+        img_pil = Image.fromarray((img_numpy * 255).astype(np.uint8), mode='L')
+        
+        # Resize for better display
+        img_pil = img_pil.resize((256, 256), Image.Resampling.NEAREST)
+        
+        return img_pil
 
-# Convert numpy array to PIL Image
-def numpy_to_pil(img_array):
-    """Convert numpy array to PIL Image"""
-    img = (img_array * 255).astype(np.uint8)
-    return Image.fromarray(img.squeeze(), mode='L')
-
-# Streamlit UI
-st.set_page_config(page_title="MNIST Digit Generator", page_icon="🔢", layout="wide")
-
-st.title("🔢 MNIST Digit Generator")
-st.markdown("Generate handwritten digits using a trained GAN model")
-
-# Sidebar
-with st.sidebar:
-    st.header("⚙️ Settings")
+# Generate function for multiple digits
+def generate_multiple_digits(digit, num_samples, seed):
+    if not model_loaded:
+        return None
     
-    # Digit selection
-    selected_digit = st.selectbox(
-        "Select digit to generate:",
-        options=list(range(10)),
-        index=0
-    )
+    if seed != -1:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
     
-    # Number of images
-    num_images = st.slider(
-        "Number of images to generate:",
-        min_value=1,
-        max_value=25,
-        value=5
-    )
+    with torch.no_grad():
+        noise = torch.randn(num_samples, 100).to(device)
+        labels = torch.full((num_samples,), digit, dtype=torch.long).to(device)
+        generated_imgs = generator(noise, labels)
+        
+        # Denormalize
+        generated_imgs = generated_imgs * 0.5 + 0.5
+        generated_imgs = torch.clamp(generated_imgs, 0, 1)
+        
+        # Create grid
+        cols = min(5, num_samples)
+        rows = (num_samples + cols - 1) // cols
+        
+        fig, axes = plt.subplots(rows, cols, figsize=(cols * 2, rows * 2))
+        if rows == 1 and cols == 1:
+            axes = [[axes]]
+        elif rows == 1:
+            axes = [axes]
+        elif cols == 1:
+            axes = [[ax] for ax in axes]
+        
+        for idx in range(num_samples):
+            row = idx // cols
+            col = idx % cols
+            axes[row][col].imshow(generated_imgs[idx].cpu().numpy()[0], cmap='gray')
+            axes[row][col].axis('off')
+            axes[row][col].set_title(f'Sample {idx + 1}')
+        
+        # Remove empty subplots
+        for idx in range(num_samples, rows * cols):
+            row = idx // cols
+            col = idx % cols
+            fig.delaxes(axes[row][col])
+        
+        plt.tight_layout()
+        
+        # Convert to image
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.close()
+        buf.seek(0)
+        img = Image.open(buf)
+        
+        return img
+
+# Generate all digits
+def generate_all_digits(seed):
+    if not model_loaded:
+        return None
     
-    # Random seed
-    use_random_seed = st.checkbox("Use random seed", value=False)
-    if use_random_seed:
-        st.session_state.random_seed = None
-    else:
-        st.session_state.random_seed = st.number_input(
-            "Seed value:",
-            min_value=0,
-            max_value=99999,
-            value=42
+    if seed != -1:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+    
+    fig, axes = plt.subplots(2, 5, figsize=(10, 4))
+    
+    with torch.no_grad():
+        for digit in range(10):
+            noise = torch.randn(1, 100).to(device)
+            label = torch.tensor([digit], dtype=torch.long).to(device)
+            generated_img = generator(noise, label)
+            
+            # Denormalize
+            generated_img = generated_img * 0.5 + 0.5
+            generated_img = torch.clamp(generated_img, 0, 1)
+            
+            row = digit // 5
+            col = digit % 5
+            axes[row, col].imshow(generated_img.cpu().numpy()[0, 0], cmap='gray')
+            axes[row, col].set_title(f'Digit {digit}')
+            axes[row, col].axis('off')
+    
+    plt.suptitle('Generated Digits 0-9', fontsize=16)
+    plt.tight_layout()
+    
+    # Convert to image
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    plt.close()
+    buf.seek(0)
+    img = Image.open(buf)
+    
+    return img
+
+# Create Gradio interface
+with gr.Blocks(title="MNIST Digit Generator") as demo:
+    gr.Markdown("# 🔢 MNIST Digit Generator")
+    gr.Markdown("Generate handwritten digits using a trained GAN model")
+    
+    with gr.Tab("Single Digit"):
+        with gr.Row():
+            with gr.Column():
+                single_digit = gr.Slider(
+                    minimum=0, 
+                    maximum=9, 
+                    step=1, 
+                    value=0, 
+                    label="Select Digit"
+                )
+                single_seed = gr.Slider(
+                    minimum=-1, 
+                    maximum=9999, 
+                    step=1, 
+                    value=-1, 
+                    label="Seed (-1 for random)"
+                )
+                single_generate_btn = gr.Button("Generate", variant="primary")
+            
+            with gr.Column():
+                single_output = gr.Image(
+                    label="Generated Digit",
+                    type="pil"
+                )
+        
+        single_generate_btn.click(
+            fn=generate_single_digit,
+            inputs=[single_digit, single_seed],
+            outputs=single_output
         )
     
-    # Generate button
-    generate_button = st.button("🎨 Generate Digits", type="primary", use_container_width=True)
-    
-    # Batch generation
-    st.markdown("---")
-    st.header("📦 Batch Generation")
-    generate_all = st.button("Generate All Digits (0-9)", use_container_width=True)
-
-# Load model
-generator, device = load_generator()
-
-# Main content area
-if generator is not None:
-    if generate_button:
-        st.subheader(f"Generated Images of Digit: {selected_digit}")
-        
-        # Generate images
-        with st.spinner('Generating images...'):
-            images = generate_digit_images(
-                generator, 
-                device, 
-                selected_digit, 
-                num_images,
-                seed=st.session_state.random_seed
-            )
-        
-        # Display images in a grid
-        cols_per_row = min(5, num_images)
-        rows = (num_images + cols_per_row - 1) // cols_per_row
-        
-        for row in range(rows):
-            cols = st.columns(cols_per_row)
-            for col_idx in range(cols_per_row):
-                img_idx = row * cols_per_row + col_idx
-                if img_idx < num_images:
-                    with cols[col_idx]:
-                        img = numpy_to_pil(images[img_idx])
-                        # Resize for better display
-                        img_resized = img.resize((150, 150), Image.Resampling.NEAREST)
-                        st.image(img_resized, caption=f"Sample {img_idx + 1}", use_column_width=True)
-        
-        # Download button for generated images
-        if num_images == 1:
-            # Single image download
-            img = numpy_to_pil(images[0])
-            buf = io.BytesIO()
-            img.save(buf, format='PNG')
-            btn = st.download_button(
-                label="Download Image",
-                data=buf.getvalue(),
-                file_name=f"digit_{selected_digit}.png",
-                mime="image/png"
-            )
-        else:
-            # Multiple images - create a grid image
-            st.markdown("---")
-            st.subheader("Download Options")
-            
-            # Create a combined image
-            fig, axes = plt.subplots(rows, cols_per_row, figsize=(cols_per_row * 2, rows * 2))
-            if rows == 1:
-                axes = axes.reshape(1, -1)
-            elif cols_per_row == 1:
-                axes = axes.reshape(-1, 1)
-            
-            for idx in range(num_images):
-                row = idx // cols_per_row
-                col = idx % cols_per_row
-                axes[row, col].imshow(images[idx].squeeze(), cmap='gray')
-                axes[row, col].axis('off')
-            
-            # Remove empty subplots
-            for idx in range(num_images, rows * cols_per_row):
-                row = idx // cols_per_row
-                col = idx % cols_per_row
-                fig.delaxes(axes[row, col])
-            
-            plt.tight_layout()
-            
-            # Save to buffer
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-            plt.close()
-            
-            st.download_button(
-                label="Download All Images as Grid",
-                data=buf.getvalue(),
-                file_name=f"digit_{selected_digit}_grid.png",
-                mime="image/png"
-            )
-    
-    if generate_all:
-        st.subheader("Generated Samples for All Digits (0-9)")
-        
-        with st.spinner('Generating all digits...'):
-            fig, axes = plt.subplots(2, 5, figsize=(10, 4))
-            
-            for digit in range(10):
-                images = generate_digit_images(
-                    generator, 
-                    device, 
-                    digit, 
-                    num_images=1,
-                    seed=st.session_state.random_seed
+    with gr.Tab("Multiple Samples"):
+        with gr.Row():
+            with gr.Column():
+                multi_digit = gr.Slider(
+                    minimum=0, 
+                    maximum=9, 
+                    step=1, 
+                    value=0, 
+                    label="Select Digit"
                 )
-                
-                row = digit // 5
-                col = digit % 5
-                axes[row, col].imshow(images[0].squeeze(), cmap='gray')
-                axes[row, col].set_title(f'Digit {digit}')
-                axes[row, col].axis('off')
+                num_samples = gr.Slider(
+                    minimum=1, 
+                    maximum=25, 
+                    step=1, 
+                    value=5, 
+                    label="Number of Samples"
+                )
+                multi_seed = gr.Slider(
+                    minimum=-1, 
+                    maximum=9999, 
+                    step=1, 
+                    value=-1, 
+                    label="Seed (-1 for random)"
+                )
+                multi_generate_btn = gr.Button("Generate Multiple", variant="primary")
             
-            plt.tight_layout()
-            st.pyplot(fig)
-            
-            # Download button
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-            plt.close()
-            
-            st.download_button(
-                label="Download All Digits",
-                data=buf.getvalue(),
-                file_name="all_digits_0-9.png",
-                mime="image/png"
-            )
+            with gr.Column():
+                multi_output = gr.Image(
+                    label="Generated Samples",
+                    type="pil"
+                )
+        
+        multi_generate_btn.click(
+            fn=generate_multiple_digits,
+            inputs=[multi_digit, num_samples, multi_seed],
+            outputs=multi_output
+        )
     
-    # Info section
-    with st.expander("ℹ️ About this App"):
-        st.markdown("""
+    with gr.Tab("All Digits"):
+        with gr.Row():
+            with gr.Column():
+                all_seed = gr.Slider(
+                    minimum=-1, 
+                    maximum=9999, 
+                    step=1, 
+                    value=-1, 
+                    label="Seed (-1 for random)"
+                )
+                all_generate_btn = gr.Button("Generate All Digits (0-9)", variant="primary")
+            
+            with gr.Column():
+                all_output = gr.Image(
+                    label="All Generated Digits",
+                    type="pil"
+                )
+        
+        all_generate_btn.click(
+            fn=generate_all_digits,
+            inputs=[all_seed],
+            outputs=all_output
+        )
+    
+    with gr.Tab("About"):
+        gr.Markdown("""
+        ## About this Model
+        
         This app uses a **Generative Adversarial Network (GAN)** trained on the MNIST dataset to generate 
         handwritten digit images.
         
-        **How it works:**
+        ### How it works:
         - The model takes random noise and a digit label as input
         - It generates a 28x28 pixel grayscale image of the specified digit
         - Each generation with the same seed will produce the same image
         
-        **Features:**
-        - Generate any digit from 0-9
-        - Control the number of generated samples
-        - Set a random seed for reproducible results
-        - Download generated images
-        - Batch generate all digits at once
+        ### Model Architecture:
+        - **Generator**: 4-layer neural network with LeakyReLU activation
+        - **Training**: 100 epochs on MNIST dataset
+        - **Approach**: Conditional GAN for digit-specific generation
         
-        **Model Architecture:**
-        - Generator: 4-layer neural network with LeakyReLU activation
-        - Trained for 100 epochs on MNIST dataset
-        - Uses conditional GAN approach for digit-specific generation
+        ### Features:
+        - Generate any digit from 0-9
+        - Control randomness with seed values
+        - Generate multiple samples at once
+        - View all digits in a single grid
         """)
+    
+    # Examples
+    gr.Examples(
+        examples=[
+            [7, 42],
+            [3, 123],
+            [9, 999],
+            [0, 2024],
+        ],
+        inputs=[single_digit, single_seed],
+        outputs=single_output,
+        fn=generate_single_digit,
+        cache_examples=True,
+    )
 
-else:
-    st.error("Unable to load the model. Please check if 'generator.pth' is in the correct location.")
+# Launch the app
+if __name__ == "__main__":
+    demo.launch()
