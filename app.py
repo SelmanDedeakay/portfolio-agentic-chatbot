@@ -10,9 +10,6 @@ import PyPDF2
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-import requests
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-import torch
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -133,7 +130,7 @@ This message was sent via your portfolio chatbot.
             return "Sorry, there was an error sending the email. Please try again later."
 
 class ToolCallingAgent:
-    """LLM Agent with tool calling capabilities"""
+    """Simple Agent with tool calling capabilities"""
     
     def __init__(self):
         # Initialize tools
@@ -141,190 +138,101 @@ class ToolCallingAgent:
             "search_cv": CVRAGTool(),
             "send_email": EmailTool()
         }
-        
-        # Initialize LLM
-        self.model_name = "microsoft/DialoGPT-medium"
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                trust_remote_code=True,
-                cache_dir="./model_cache"
-            )
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                trust_remote_code=True,
-                cache_dir="./model_cache"
-            )
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            logger.info("LLM loaded successfully")
-        except Exception as e:
-            logger.error(f"Error loading LLM: {e}")
-            self.tokenizer = None
-            self.model = None
     
-    def get_tool_descriptions(self) -> str:
-        """Get descriptions of available tools"""
-        return """
-Available tools:
-1. search_cv(query: str) - Search Selman's CV/resume for information about his background, experience, skills, education, projects
-2. send_email(sender_name: str, sender_email: str, subject: str, message: str) - Send an email to Selman for contact/collaboration requests
-
-Tool calling format:
-TOOL_CALL: tool_name(param1="value1", param2="value2")
-"""
-    
-    def extract_tool_calls(self, text: str) -> List[Dict]:
-        """Extract tool calls from LLM response"""
-        tool_calls = []
-        pattern = r'TOOL_CALL:\s*(\w+)\((.*?)\)'
-        matches = re.findall(pattern, text, re.DOTALL)
-        
-        for tool_name, params_str in matches:
-            if tool_name in self.tools:
-                try:
-                    # Parse parameters
-                    params = {}
-                    param_pattern = r'(\w+)="([^"]*)"'
-                    param_matches = re.findall(param_pattern, params_str)
-                    for key, value in param_matches:
-                        params[key] = value
-                    
-                    tool_calls.append({
-                        "tool": tool_name,
-                        "params": params
-                    })
-                except Exception as e:
-                    logger.error(f"Error parsing tool call: {e}")
-        
-        return tool_calls
-    
-    def execute_tool_call(self, tool_call: Dict) -> str:
-        """Execute a tool call"""
-        tool_name = tool_call["tool"]
-        params = tool_call["params"]
-        
-        try:
-            if tool_name == "search_cv":
-                return self.tools[tool_name](params.get("query", ""))
-            elif tool_name == "send_email":
-                return self.tools[tool_name](
-                    params.get("sender_name", "Portfolio Visitor"),
-                    params.get("sender_email", ""),
-                    params.get("subject", "Contact from Portfolio"),
-                    params.get("message", "")
-                )
-        except Exception as e:
-            logger.error(f"Tool execution error: {e}")
-            return f"Error executing {tool_name}: {str(e)}"
-        
-        return f"Unknown tool: {tool_name}"
-    
-    def generate_response(self, user_message: str) -> str:
-        """Generate response with tool calling"""
-        system_prompt = f"""You are Selman's portfolio assistant chatbot. Your job is to help visitors learn about Selman and contact him.
-
-{self.get_tool_descriptions()}
-
-Instructions:
-- If someone asks about Selman's background, experience, skills, education, or projects, use search_cv tool
-- If someone wants to contact Selman or send a message, use send_email tool
-- Extract email addresses from user messages when handling contact requests
-- Always use tool calls when appropriate, don't try to answer from memory
-- Be helpful and professional
-
-User message: {user_message}
-
-Response (use tools when needed):"""
-
-        if self.model and self.tokenizer:
-            try:
-                encoded = self.tokenizer(system_prompt, return_tensors="pt", max_length=512, truncation=True, padding=True)
-                inputs = encoded['input_ids']
-                attention_mask = encoded['attention_mask']
-                
-                with torch.no_grad():
-                    outputs = self.model.generate(
-                        inputs,
-                        attention_mask=attention_mask,
-                        max_length=inputs.shape[1] + 150,
-                        temperature=0.7,
-                        do_sample=True,
-                        pad_token_id=self.tokenizer.eos_token_id
-                    )
-                
-                response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
-                
-                # Check for tool calls in response
-                tool_calls = self.extract_tool_calls(response)
-                
-                if tool_calls:
-                    # Execute tool calls and format response
-                    tool_results = []
-                    for tool_call in tool_calls:
-                        result = self.execute_tool_call(tool_call)
-                        tool_results.append(result)
-                    
-                    # Generate final response with tool results
-                    final_prompt = f"""Based on the tool results below, provide a helpful response to the user.
-
-User question: {user_message}
-Tool results: {' '.join(tool_results)}
-
-Response:"""
-                    
-                    final_encoded = self.tokenizer(final_prompt, return_tensors="pt", max_length=512, truncation=True, padding=True)
-                    final_inputs = final_encoded['input_ids']
-                    final_attention_mask = final_encoded['attention_mask']
-                    
-                    with torch.no_grad():
-                        final_outputs = self.model.generate(
-                            final_inputs,
-                            attention_mask=final_attention_mask,
-                            max_length=final_inputs.shape[1] + 100,
-                            temperature=0.7,
-                            do_sample=True,
-                            pad_token_id=self.tokenizer.eos_token_id
-                        )
-                    
-                    final_response = self.tokenizer.decode(final_outputs[0][final_inputs.shape[1]:], skip_special_tokens=True)
-                    return final_response.strip()
-                
-                return response.strip()
-                
-            except Exception as e:
-                logger.error(f"LLM generation error: {e}")
-        
-        # Fallback: Rule-based tool calling
-        return self.fallback_response(user_message)
-    
-    def fallback_response(self, user_message: str) -> str:
-        """Fallback response when LLM is not available"""
+    def detect_intent(self, user_message: str) -> Dict[str, Any]:
+        """Detect user intent from message"""
         message_lower = user_message.lower()
         
         # Check for CV-related queries
-        cv_keywords = ['experience', 'background', 'skills', 'education', 'work', 'projects', 'resume', 'cv', 'about', 'who']
-        if any(keyword in message_lower for keyword in cv_keywords):
-            cv_result = self.tools["search_cv"](user_message)
-            return f"Based on Selman's CV:\n\n{cv_result}"
+        cv_keywords = ['experience', 'background', 'skills', 'education', 'work', 'projects', 
+                       'resume', 'cv', 'about', 'who', 'qualification', 'study', 'studied',
+                       'university', 'degree', 'expertise', 'specializ', 'proficient']
         
-        # Check for email intent
-        email_keywords = ['email', 'contact', 'reach', 'hire', 'message', 'send']
-        if any(keyword in message_lower for keyword in email_keywords):
-            # Try to extract email
+        # Check for contact intent
+        contact_keywords = ['email', 'contact', 'reach', 'hire', 'message', 'send', 'get in touch',
+                           'talk', 'discuss', 'opportunity', 'collaboration', 'connect']
+        
+        # Check for greeting
+        greeting_keywords = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening']
+        
+        # Count keyword matches
+        cv_score = sum(1 for keyword in cv_keywords if keyword in message_lower)
+        contact_score = sum(1 for keyword in contact_keywords if keyword in message_lower)
+        greeting_score = sum(1 for keyword in greeting_keywords if keyword in message_lower)
+        
+        # Determine primary intent
+        if cv_score > 0 and cv_score >= contact_score:
+            return {"intent": "cv_query", "confidence": cv_score / len(cv_keywords)}
+        elif contact_score > 0:
+            # Check for email in message
             email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', user_message)
-            if email_match:
-                email_result = self.tools["send_email"](
-                    "Portfolio Visitor",
-                    email_match.group(0),
-                    "Contact from Portfolio",
-                    user_message
-                )
-                return email_result
-            else:
-                return "I'd be happy to help you contact Selman! Please provide your email address and message, and I'll send it to him."
-        
-        # General response
-        return "Hello! I'm Selman's portfolio assistant. I can help you learn about his background and experience, or help you contact him. What would you like to know?"
+            return {
+                "intent": "contact", 
+                "confidence": contact_score / len(contact_keywords),
+                "email": email_match.group(0) if email_match else None
+            }
+        elif greeting_score > 0:
+            return {"intent": "greeting", "confidence": 1.0}
+        else:
+            # Default to cv_query if unclear
+            return {"intent": "general", "confidence": 0.5}
+    
+    def generate_response(self, user_message: str) -> str:
+        """Generate response based on intent detection and tool calling"""
+        try:
+            # Detect intent
+            intent_result = self.detect_intent(user_message)
+            intent = intent_result["intent"]
+            
+            if intent == "greeting":
+                responses = [
+                    "Hello! I'm Selman's portfolio assistant. How can I help you today?",
+                    "Hi there! I can help you learn about Selman's background or help you contact him. What would you like to know?",
+                    "Hey! Welcome to Selman's portfolio. I'm here to assist you with any questions about his experience or to help you get in touch."
+                ]
+                return responses[hash(user_message) % len(responses)]
+            
+            elif intent == "cv_query":
+                # Use CV search tool
+                cv_result = self.tools["search_cv"](user_message)
+                if "CV file not available" in cv_result:
+                    return "I apologize, but I don't have access to Selman's CV at the moment. However, I can help you contact him directly if you'd like to learn more about his background."
+                else:
+                    return f"Based on Selman's CV, here's what I found:\n\n{cv_result}\n\nIs there anything specific you'd like to know more about?"
+            
+            elif intent == "contact":
+                email = intent_result.get("email")
+                if email:
+                    # Extract name if possible
+                    name_match = re.search(r"(i'm|i am|my name is|this is)\s+([a-z]+)", user_message.lower())
+                    sender_name = name_match.group(2).title() if name_match else "Portfolio Visitor"
+                    
+                    # Send email
+                    email_result = self.tools["send_email"](
+                        sender_name,
+                        email,
+                        "Contact from Portfolio",
+                        user_message
+                    )
+                    return email_result
+                else:
+                    return ("I'd be happy to help you contact Selman! To send him a message, please include:\n"
+                           "- Your email address\n"
+                           "- Your message\n\n"
+                           "For example: 'I'd like to contact Selman. My email is john@example.com and I'm interested in discussing a project.'")
+            
+            else:  # general intent
+                return ("I'm here to help you learn about Selman's background and experience, or help you contact him. "
+                       "You can ask me about:\n"
+                       "- His education and qualifications\n"
+                       "- Work experience and projects\n"
+                       "- Technical skills and expertise\n"
+                       "- How to get in touch with him\n\n"
+                       "What would you like to know?")
+                
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            return "I apologize, but I encountered an error processing your request. Please try rephrasing your question."
 
 # Initialize the agent
 @st.cache_resource
@@ -339,6 +247,20 @@ def main():
     )
     
     st.title("💬 Selman's Portfolio Assistant")
+    
+    # Add a sidebar with information
+    with st.sidebar:
+        st.markdown("### About this Assistant")
+        st.markdown("I can help you:")
+        st.markdown("- 📄 Learn about Selman's background")
+        st.markdown("- 💼 Explore his work experience")
+        st.markdown("- 🎓 Discover his education")
+        st.markdown("- 💻 Understand his technical skills")
+        st.markdown("- 📧 Contact him directly")
+        
+        st.markdown("---")
+        st.markdown("### How to use")
+        st.markdown("Simply type your question or request in the chat!")
     
     # Initialize chat history
     if "messages" not in st.session_state:
