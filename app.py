@@ -71,7 +71,7 @@ class GeminiEmbeddingRAG:
                         self.cv_embeddings = self.get_embeddings(self.cv_chunks)
                     
                     if self.cv_embeddings:
-                        st.success(f"✅ Loaded {len(self.cv_chunks)} chunks from CV")
+                        st.success("✅ Loaded Selman's recent CV.")         
                     else:
                         st.error("❌ Failed to generate embeddings")
                 else:
