@@ -1,575 +1,247 @@
 import streamlit as st
 import os
-import smtplib
-import json
-import re
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import List, Dict, Any, Optional
-import PyPDF2
-from sentence_transformers import SentenceTransformer
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-import logging
+from typing import List, Dict, Any
+import PyPDF2
 from google import genai
 from google.genai import types
+import re
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-class GeminiLLM:
-    """Wrapper for Google Gemini API using google-genai 1.21.1"""
-    
-    def __init__(self):
-        try:
-            # Get API key from Streamlit secrets or environment
-            api_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
-            if api_key:
-                # Initialize the client with the new API
-                self.client = genai.Client(api_key=api_key)
-                self.model_id = "gemini-1.5-flash"
-                self.configured = True
-                logger.info("Gemini API configured successfully with google-genai 1.21.1")
-            else:
-                self.configured = False
-                logger.warning("Gemini API key not found")
-        except Exception as e:
-            logger.error(f"Failed to initialize Gemini: {e}")
-            self.configured = False
-    
-    def generate(self, prompt: str, context: str) -> str:
-        """Generate response using Gemini 1.5 Flash"""
-        if not self.configured:
-            return "Gemini API not configured. Please set GEMINI_API_KEY in your environment or Streamlit secrets."
-        
-        full_prompt = f"""You are an AI assistant for Selman's portfolio. Your role is to answer questions about Selman based on the provided CV context.
-
-Important instructions:
-1. Only use information from the provided context
-2. If the answer is not in the context, politely say so and suggest contacting Selman directly
-3. Be professional and friendly
-4. Keep responses concise but informative
-5. When mentioning specific experiences or skills, quote directly from the CV when possible
-
-Context from Selman's CV:
-{context}
-
-User Question: {prompt}
-
-Please provide a helpful and accurate response based on the CV context above:"""
-        
-        try:
-            # Use the new API structure
-            response = self.client.models.generate_content(
-                model=self.model_id,
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.7,
-                    max_output_tokens=512,
-                    top_p=0.8,
-                    top_k=40,
-                    stop_sequences=["Human:", "User:", "Question:"],
-                )
-            )
-            
-            # Extract text from response
-            if response.text:
-                return response.text
-            else:
-                return "I couldn't generate a response. Please try again."
-                
-        except Exception as e:
-            logger.error(f"Gemini generation error: {e}")
-            return f"I apologize, but I encountered an error while generating a response. Please try again."
-
-class CVRAGTool:
-    """RAG tool for CV question answering with Gemini"""
+class GeminiEmbeddingRAG:
+    """RAG using Gemini embeddings instead of SentenceTransformers"""
     
     def __init__(self, cv_path: str = "selman-cv.pdf"):
         self.cv_path = cv_path
-        self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
         self.cv_chunks = []
-        self.cv_embeddings = None
-        self.full_text = ""
-        self.llm = GeminiLLM()
-        self.metadata = {}  # Store metadata about chunks
-        self.load_cv()
+        self.cv_embeddings = []
+        
+        # Initialize Gemini client
+        try:
+            api_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
+            if api_key:
+                self.client = genai.Client(api_key=api_key)
+                self.configured = True
+                st.success("✅ Gemini API configured for embeddings and generation")
+            else:
+                self.configured = False
+                st.error("❌ Gemini API key not found")
+        except Exception as e:
+            st.error(f"❌ Gemini setup failed: {e}")
+            self.configured = False
+        
+        if self.configured:
+            self.load_cv()
+    
+    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Get embeddings using Gemini embedding model"""
+        if not self.configured:
+            return []
+        
+        try:
+            embeddings = []
+            for text in texts:
+                # Use Gemini embedding model
+                response = self.client.models.embed_content(
+                    model="models/text-embedding-004",  # Latest embedding model
+                    content=text,
+                    task_type="retrieval_document",  # For document search
+                    title="CV Content"
+                )
+                embeddings.append(response.embedding)
+            return embeddings
+        except Exception as e:
+            st.error(f"Embedding error: {e}")
+            return []
     
     def load_cv(self):
-        """Load and process CV into chunks with metadata"""
+        """Load CV and create embeddings"""
         try:
             if os.path.exists(self.cv_path):
+                # Extract text from PDF
                 with open(self.cv_path, 'rb') as file:
                     pdf_reader = PyPDF2.PdfReader(file)
                     text = ""
-                    page_texts = []
-                    
-                    for i, page in enumerate(pdf_reader.pages):
-                        page_text = page.extract_text()
-                        page_texts.append((i + 1, page_text))
-                        text += page_text + "\n"
+                    for page in pdf_reader.pages:
+                        text += page.extract_text() + "\n"
                 
-                self.full_text = text
-                self.cv_chunks, self.metadata = self._chunk_text_with_metadata(page_texts)
-                self.cv_embeddings = self.embedder.encode(self.cv_chunks)
-                logger.info(f"Loaded CV with {len(self.cv_chunks)} chunks from {len(page_texts)} pages")
+                # Chunk the text
+                self.cv_chunks = self._chunk_text(text)
+                
+                # Generate embeddings using Gemini
+                with st.spinner(f"Generating embeddings for {len(self.cv_chunks)} chunks..."):
+                    self.cv_embeddings = self.get_embeddings(self.cv_chunks)
+                
+                if self.cv_embeddings:
+                    st.success(f"✅ Loaded {len(self.cv_chunks)} chunks with Gemini embeddings")
+                else:
+                    st.error("❌ Failed to generate embeddings")
             else:
-                logger.warning(f"CV file {self.cv_path} not found")
-                self.cv_chunks = ["CV file not available. Please upload selman-cv.pdf to provide information about Selman."]
-                self.cv_embeddings = self.embedder.encode(self.cv_chunks)
+                st.warning(f"CV file {self.cv_path} not found")
+                self.cv_chunks = ["CV file not available"]
+                
         except Exception as e:
-            logger.error(f"Error loading CV: {e}")
-            self.cv_chunks = ["Error loading CV file."]
-            self.cv_embeddings = self.embedder.encode(self.cv_chunks)
+            st.error(f"Error loading CV: {e}")
+            self.cv_chunks = ["Error loading CV"]
     
-    def _chunk_text_with_metadata(self, page_texts: List[tuple], chunk_size: int = 400, overlap: int = 100) -> tuple:
-        """Split text into overlapping chunks with metadata"""
+    def _chunk_text(self, text: str, chunk_size: int = 400) -> List[str]:
+        """Split text into chunks"""
+        text = re.sub(r'\s+', ' ', text).strip()
         chunks = []
-        metadata = []
         
-        for page_num, page_text in page_texts:
-            # Clean text
-            page_text = re.sub(r'\s+', ' ', page_text).strip()
+        start = 0
+        while start < len(text):
+            end = start + chunk_size
             
-            # Split page into chunks
-            start = 0
-            while start < len(page_text):
-                end = start + chunk_size
-                
-                # Try to find a natural break point
-                if end < len(page_text):
-                    # Look for paragraph or sentence endings
-                    for delimiter in ['\n\n', '\n', '. ', '! ', '? ']:
-                        last_delimiter = page_text.rfind(delimiter, start, end)
-                        if last_delimiter != -1 and last_delimiter > start:
-                            end = last_delimiter + len(delimiter)
-                            break
-                
-                chunk = page_text[start:end].strip()
-                if chunk:
-                    chunks.append(chunk)
-                    metadata.append({
-                        'page': page_num,
-                        'start_char': start,
-                        'end_char': end,
-                        'chunk_id': len(chunks) - 1
-                    })
-                
-                # Move start with overlap
-                start = end - overlap if end < len(page_text) else end
+            # Find natural break
+            if end < len(text):
+                for delimiter in ['\n\n', '\n', '. ', '! ', '? ']:
+                    last_delimiter = text.rfind(delimiter, start, end)
+                    if last_delimiter != -1:
+                        end = last_delimiter + len(delimiter)
+                        break
+            
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            start = end
         
-        return chunks, metadata
+        return chunks
     
-    def retrieve_relevant_chunks(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Retrieve most relevant chunks using semantic search"""
-        if not self.cv_chunks or self.cv_embeddings is None:
-            return [{"text": "CV information not available.", "metadata": {}}]
+    def cosine_similarity(self, a: List[float], b: List[float]) -> float:
+        """Calculate cosine similarity between two vectors"""
+        a = np.array(a)
+        b = np.array(b)
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    
+    def search_similar_chunks(self, query: str, top_k: int = 3) -> List[Dict]:
+        """Search for similar chunks using Gemini embeddings"""
+        if not self.configured or not self.cv_embeddings:
+            return [{"text": "Embeddings not available", "similarity": 0}]
         
-        # Encode query
-        query_embedding = self.embedder.encode([query])
+        # Get query embedding
+        query_embeddings = self.get_embeddings([query])
+        if not query_embeddings:
+            return [{"text": "Could not process query", "similarity": 0}]
+        
+        query_embedding = query_embeddings[0]
         
         # Calculate similarities
-        similarities = cosine_similarity(query_embedding, self.cv_embeddings)[0]
+        similarities = []
+        for i, chunk_embedding in enumerate(self.cv_embeddings):
+            similarity = self.cosine_similarity(query_embedding, chunk_embedding)
+            similarities.append({
+                "text": self.cv_chunks[i],
+                "similarity": similarity,
+                "index": i
+            })
         
-        # Get top k indices
-        top_indices = np.argsort(similarities)[-top_k:][::-1]
-        
-        # Filter by similarity threshold and prepare results
-        threshold = 0.25
-        relevant_chunks = []
-        
-        for idx in top_indices:
-            if similarities[idx] > threshold:
-                relevant_chunks.append({
-                    'text': self.cv_chunks[idx],
-                    'similarity': float(similarities[idx]),
-                    'metadata': self.metadata[idx] if idx < len(self.metadata) else {}
-                })
-        
-        # Sort by similarity
-        relevant_chunks.sort(key=lambda x: x['similarity'], reverse=True)
-        
-        return relevant_chunks if relevant_chunks else [{"text": "No relevant information found in CV.", "metadata": {}}]
+        # Sort by similarity and return top k
+        similarities.sort(key=lambda x: x["similarity"], reverse=True)
+        return similarities[:top_k]
     
-    def __call__(self, query: str) -> str:
-        """Perform RAG: retrieve relevant chunks and generate answer using Gemini"""
-        # Retrieve relevant chunks with metadata
-        relevant_chunks = self.retrieve_relevant_chunks(query)
+    def generate_response(self, query: str) -> str:
+        """Generate response using retrieved context"""
+        if not self.configured:
+            return "Gemini API not configured"
         
-        # Create context from chunks with page information
-        context_parts = []
-        for i, chunk_data in enumerate(relevant_chunks):
-            chunk_text = chunk_data['text']
-            metadata = chunk_data.get('metadata', {})
-            
-            if metadata and 'page' in metadata:
-                context_parts.append(f"[From page {metadata['page']}]: {chunk_text}")
-            else:
-                context_parts.append(chunk_text)
+        # Retrieve relevant chunks
+        relevant_chunks = self.search_similar_chunks(query)
         
-        context = "\n\n".join(context_parts)
+        # Create context
+        context = "\n\n".join([chunk["text"] for chunk in relevant_chunks])
         
-        # Add similarity scores for debugging (optional)
-        if relevant_chunks and 'similarity' in relevant_chunks[0]:
-            logger.info(f"Top chunk similarity: {relevant_chunks[0]['similarity']:.3f}")
+        # Show similarity scores for debugging
+        if relevant_chunks:
+            st.info(f"Top similarity: {relevant_chunks[0]['similarity']:.3f}")
         
-        # Generate response using Gemini
-        response = self.llm.generate(query, context)
-        
-        return response
+        # Generate response
+        prompt = f"""You are Selman's AI portfolio assistant. Answer questions about Selman based on his CV.
 
-class EmailTool:
-    """SMTP Gmail email tool"""
-    
-    def __init__(self):
-        self.smtp_server = "smtp.gmail.com"
-        self.smtp_port = 587
-        try:
-            self.sender_email = st.secrets["GMAIL_EMAIL"]
-            self.sender_password = st.secrets["GMAIL_APP_PASSWORD"]
-        except:
-            self.sender_email = os.getenv("GMAIL_EMAIL", "")
-            self.sender_password = os.getenv("GMAIL_APP_PASSWORD", "")
-    
-    def __call__(self, sender_name: str, sender_email: str, subject: str, message: str) -> str:
-        """Send email via Gmail SMTP"""
-        if not self.sender_email or not self.sender_password:
-            return "Email configuration not available. Please set GMAIL_EMAIL and GMAIL_APP_PASSWORD environment variables."
+Rules:
+- Only use information from the provided context
+- If information isn't available, say so politely
+- Be professional and helpful
+- Keep responses concise but informative
+
+CV Context:
+{context}
+
+User Question: {query}
+
+Response:"""
         
         try:
-            msg = MIMEMultipart()
-            msg['From'] = self.sender_email
-            msg['To'] = self.sender_email
-            msg['Subject'] = f"Portfolio Contact: {subject}"
-            
-            body = f"""
-New message from portfolio website:
-
-From: {sender_name}
-Email: {sender_email}
-Subject: {subject}
-
-Message:
-{message}
-
----
-This message was sent via your portfolio chatbot.
-            """
-            
-            msg.attach(MIMEText(body, 'plain'))
-            
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.sender_email, self.sender_password)
-                server.send_message(msg)
-            
-            return "Email sent successfully! Selman will receive your message and get back to you soon."
-            
+            response = self.client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=400
+                )
+            )
+            return response.text if response.text else "No response generated"
         except Exception as e:
-            logger.error(f"Email error: {e}")
-            return "Sorry, there was an error sending the email. Please try again later."
+            return f"Error generating response: {e}"
 
-class ToolCallingAgent:
-    """Agent with RAG and tool calling capabilities using Gemini"""
-    
-    def __init__(self):
-        # Initialize tools
-        self.tools = {
-            "search_cv": CVRAGTool(),
-            "send_email": EmailTool()
-        }
-        self.llm = GeminiLLM()
-    
-    def detect_intent(self, user_message: str) -> Dict[str, Any]:
-        """Detect user intent from message using pattern matching and keyword analysis"""
-        message_lower = user_message.lower()
-        
-        # Define intent patterns
-        cv_keywords = [
-            'experience', 'background', 'skills', 'education', 'work', 'projects', 
-            'resume', 'cv', 'about', 'who', 'qualification', 'study', 'studied',
-            'university', 'degree', 'expertise', 'specializ', 'proficient', 'what',
-            'where', 'when', 'how', 'which', 'tell', 'describe', 'explain', 'know',
-            'learn', 'working', 'worked', 'role', 'position', 'job', 'career',
-            'technical', 'programming', 'language', 'framework', 'tool', 'technology'
-        ]
-        
-        contact_keywords = [
-            'email', 'contact', 'reach', 'hire', 'message', 'send', 'get in touch',
-            'talk', 'discuss', 'opportunity', 'collaboration', 'connect', 'interested',
-            'proposal', 'inquiry', 'question for selman'
-        ]
-        
-        greeting_keywords = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings']
-        
-        # Check for patterns
-        is_question = any(message_lower.startswith(q) for q in ['what', 'where', 'when', 'who', 'how', 'which', 'can', 'could', 'would', 'is', 'are', 'do', 'does', 'tell', 'explain'])
-        has_question_mark = '?' in user_message
-        
-                # Count keyword matches
-        cv_score = sum(1 for keyword in cv_keywords if keyword in message_lower)
-        contact_score = sum(1 for keyword in contact_keywords if keyword in message_lower)
-        greeting_score = sum(1 for keyword in greeting_keywords if keyword in message_lower)
-        
-        # Email detection
-        email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', user_message)
-        
-        # Determine intent
-        if greeting_score > 0 and len(message_lower.split()) < 6:
-            return {"intent": "greeting", "confidence": 1.0}
-        elif email_match or (contact_score > 2):
-            return {
-                "intent": "contact", 
-                "confidence": min(contact_score / 3, 1.0),
-                "email": email_match.group(0) if email_match else None
-            }
-        elif cv_score > 0 or is_question or has_question_mark:
-            confidence = min((cv_score / 5) + (0.3 if is_question else 0) + (0.2 if has_question_mark else 0), 1.0)
-            return {"intent": "cv_query", "confidence": confidence}
-        else:
-            # Default to general/cv_query for ambiguous cases
-            return {"intent": "cv_query", "confidence": 0.5}
-    
-    def generate_response(self, user_message: str) -> str:
-        """Generate response based on intent detection and tool calling"""
-        try:
-            # Detect intent
-            intent_result = self.detect_intent(user_message)
-            intent = intent_result["intent"]
-            confidence = intent_result.get("confidence", 0)
-            
-            logger.info(f"Detected intent: {intent} (confidence: {confidence:.2f})")
-            
-            if intent == "greeting":
-                responses = [
-                    "Hello! I'm Selman's AI assistant powered by Gemini 1.5 Flash. I can help you learn about his background, experience, and skills from his CV. What would you like to know?",
-                    "Hi there! I have access to Selman's CV and can answer questions about his education, work experience, projects, and skills. How can I help you today?",
-                    "Hey! Welcome to Selman's portfolio. I can provide detailed information about his professional background using AI-powered search. What interests you?"
-                ]
-                return responses[hash(user_message) % len(responses)]
-            
-            elif intent == "cv_query":
-                # Use RAG tool for CV queries
-                with st.spinner("Searching Selman's CV and generating response..."):
-                    response = self.tools["search_cv"](user_message)
-                
-                # Add a follow-up suggestion if response seems incomplete
-                if "not found" in response.lower() or "not available" in response.lower():
-                    response += "\n\nWould you like to contact Selman directly for more information? Just let me know and I can help you send a message."
-                
-                return response
-            
-            elif intent == "contact":
-                email = intent_result.get("email")
-                if email:
-                    # Extract name if possible
-                    name_patterns = [
-                        r"(?:i'm|i am|my name is|this is)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)",
-                        r"^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+here",
-                        r"- ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*$"
-                    ]
-                    
-                    sender_name = "Portfolio Visitor"
-                    for pattern in name_patterns:
-                        name_match = re.search(pattern, user_message, re.IGNORECASE)
-                        if name_match:
-                            sender_name = name_match.group(1).strip().title()
-                            break
-                    
-                    # Extract subject/topic if mentioned
-                    subject = "Contact from Portfolio"
-                    subject_keywords = ['about', 'regarding', 'for', 'discuss', 'opportunity', 'project', 'position', 'role']
-                    for keyword in subject_keywords:
-                        if keyword in user_message.lower():
-                            # Try to extract the part after the keyword
-                            pattern = f"{keyword}\\s+(.+?)(?:\\.|,|$)"
-                            match = re.search(pattern, user_message.lower())
-                            if match:
-                                subject = f"Portfolio: {match.group(1).strip().title()}"
-                                break
-                    
-                    # Send email
-                    email_result = self.tools["send_email"](
-                        sender_name,
-                        email,
-                        subject,
-                        user_message
-                    )
-                    return email_result
-                else:
-                    return ("I'd be happy to help you contact Selman! To send him a message, please include:\n"
-                           "- Your email address\n"
-                           "- Your message or inquiry\n\n"
-                           "For example: 'I'd like to contact Selman about a project opportunity. My email is john@example.com'")
-            
-        except Exception as e:
-            logger.error(f"Error generating response: {e}")
-            return "I apologize, but I encountered an error processing your request. Please try rephrasing your question or try again later."
-
-# Cache the agent to avoid reinitialization
-@st.cache_resource
-def load_agent():
-    return ToolCallingAgent()
-
-# Streamlit UI
+# Streamlit App
 def main():
     st.set_page_config(
-        page_title="Selman's Portfolio Assistant",
-        page_icon="🤖",
+        page_title="Gemini Embeddings RAG",
+        page_icon="🔍",
         layout="centered"
     )
     
-    # Custom CSS for better styling
-    st.markdown("""
-        <style>
-        .stChat {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .chat-message {
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .stSpinner > div {
-            text-align: center;
-            color: #1f77b4;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    st.title("🔍 RAG with Gemini Embeddings")
+    st.caption("Using Gemini text-embedding-004 model for semantic search")
     
-    # Header
-    st.title("🤖 Selman's AI Portfolio Assistant")
-    st.caption("Powered by Gemini 1.5 Flash and RAG (google-genai 1.21.1)")
+    # Initialize RAG system
+    if "rag_system" not in st.session_state:
+        with st.spinner("Initializing Gemini embeddings..."):
+            st.session_state.rag_system = GeminiEmbeddingRAG()
     
-    # Sidebar
-    with st.sidebar:
-        st.markdown("### 🎯 About this Assistant")
-        st.markdown("I'm an AI assistant that can help you learn about Selman's professional background using Retrieval-Augmented Generation (RAG).")
-        
-        st.markdown("### 💡 What I can do:")
-        st.markdown("- 📄 **Answer questions** about Selman's education, experience, and skills")
-        st.markdown("- 🔍 **Search his CV** for specific information")
-        st.markdown("- 💼 **Explain his projects** and technical expertise")
-        st.markdown("- 📧 **Help you contact him** directly")
-        
-        st.markdown("---")
-        
-        st.markdown("### 🛠️ Technical Stack:")
-        st.markdown("- **LLM**: Gemini 1.5 Flash")
-        st.markdown("- **Library**: google-genai 1.21.1")
-        st.markdown("- **Embeddings**: Sentence Transformers")
-        st.markdown("- **Vector Search**: Cosine Similarity")
-        
-        st.markdown("---")
-        
-        # Debug info (optional)
-        if st.checkbox("Show debug info"):
-            agent = load_agent()
-            st.markdown("### Debug Information")
-            st.markdown(f"- CV Loaded: {'✅' if agent.tools['search_cv'].cv_chunks else '❌'}")
-            st.markdown(f"- Number of chunks: {len(agent.tools['search_cv'].cv_chunks)}")
-            st.markdown(f"- Gemini configured: {'✅' if agent.llm.configured else '❌'}")
-            st.markdown(f"- Email configured: {'✅' if agent.tools['send_email'].sender_email else '❌'}")
+    rag_system = st.session_state.rag_system
     
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        # Add welcome message
-        welcome_message = (
-            "Hello! I'm Selman's AI portfolio assistant, powered by Google's Gemini 1.5 Flash using the latest google-genai library. "
-            "I can answer questions about his education, work experience, skills, and projects based on his CV. "
-            "What would you like to know?"
-        )
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": welcome_message
-        })
-    
-    # Load agent
-    agent = load_agent()
-    
-    # Display chat messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-    
-    # Chat input
-    if prompt := st.chat_input("Ask about Selman's background or request to contact him..."):
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        # Generate assistant response
-        with st.chat_message("assistant"):
-            try:
-                # Show thinking indicator
-                with st.spinner("Analyzing your question and searching CV..."):
-                    response = agent.generate_response(prompt)
-                
-                # Display response
-                st.markdown(response)
-                
-                # Add to chat history
-                st.session_state.messages.append({"role": "assistant", "content": response})
-                
-            except Exception as e:
-                error_msg = f"I apologize, but I encountered an error: {str(e)}. Please try again."
-                st.error(error_msg)
-                st.session_state.messages.append({"role": "assistant", "content": error_msg})
-                logger.error(f"Chat error: {e}")
-    
-    # Footer with example questions
-    with st.expander("💭 Example questions you can ask:"):
-        example_questions = [
-            "What is Selman's educational background?",
-            "What programming languages does Selman know?",
-            "Tell me about Selman's work experience",
-            "What projects has Selman worked on?",
-            "What are Selman's technical skills?",
-            "Does Selman have experience with machine learning?",
-            "I'd like to contact Selman about a job opportunity. My email is example@email.com"
-        ]
-        for question in example_questions:
-            st.markdown(f"- {question}")
-    
-    # Footer
-    st.markdown("---")
-    st.caption("💡 Tip: The more specific your question, the better I can search Selman's CV for relevant information!")
-
-if __name__ == "__main__":
-    # Check for required packages
-    required_packages = {
-        'google-genai': 'google-genai>=1.21.1',
-        'sentence-transformers': 'sentence-transformers',
-        'PyPDF2': 'PyPDF2',
-        'scikit-learn': 'scikit-learn',
-        'numpy': 'numpy',
-        'streamlit': 'streamlit'
-    }
-    
-    # Display installation instructions if needed
-    missing_packages = []
-    package_check = {
-        'google-genai': 'google.genai',
-        'sentence-transformers': 'sentence_transformers',
-        'PyPDF2': 'PyPDF2',
-        'scikit-learn': 'sklearn',
-        'numpy': 'numpy',
-        'streamlit': 'streamlit'
-    }
-    
-    for package, import_name in package_check.items():
-        try:
-            __import__(import_name)
-        except ImportError:
-            missing_packages.append(required_packages[package])
-    
-    if missing_packages:
-        st.error(f"Missing required packages!")
-        st.code(f"pip install {' '.join(missing_packages)}")
-        st.info("Please install the missing packages and restart the app.")
+    # Only proceed if configured
+    if not rag_system.configured:
+        st.error("Please configure GEMINI_API_KEY to continue")
         st.stop()
     
+    # Chat interface
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Hello! I can answer questions about Selman using Gemini embeddings for semantic search. What would you like to know?"}
+        ]
+    
+    # Display messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
+    
+    # Chat input
+    if prompt := st.chat_input("Ask about Selman's background..."):
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.write(prompt)
+        
+        # Generate response
+        with st.chat_message("assistant"):
+            with st.spinner("Searching with Gemini embeddings..."):
+                response = rag_system.generate_response(prompt)
+            st.write(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+    
+    # Sidebar info
+    with st.sidebar:
+        st.markdown("### 🔍 Gemini Embeddings RAG")
+        st.markdown("- **Embeddings**: text-embedding-004")
+        st.markdown("- **Generation**: gemini-1.5-flash")
+        st.markdown("- **Vector dims**: 3072")
+        st.markdown("- **Search**: Cosine similarity")
+        
+        if rag_system.configured and rag_system.cv_chunks:
+            st.markdown(f"- **Chunks loaded**: {len(rag_system.cv_chunks)}")
+            st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings else '❌'}")
+
+if __name__ == "__main__":
     main()
