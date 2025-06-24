@@ -191,7 +191,7 @@ Rules:
 - Only use information from the provided context
 - If information isn't available, say so politely
 - Be professional and helpful
-- Keep responses concise but informative
+- Keep responses informative.
 
 CV Context:
 {context}
@@ -205,7 +205,7 @@ Response:"""
                 model="gemini-1.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.7,
+                    temperature=0.4,
                     max_output_tokens=400
                 )
             )
