@@ -14,6 +14,22 @@ import json
 
 load_dotenv()
 
+def detect_language_from_messages(messages: List[Dict]) -> str:
+    """Detect if user is speaking Turkish based on recent messages"""
+    if not messages:
+        return "en"
+    
+    # Check last few user messages for Turkish keywords/patterns
+    recent_user_messages = [msg['content'] for msg in messages[-5:] if msg['role'] == 'user']
+    turkish_keywords = ['hakkında', 'nedir', 'kimdir', 'nasıl', 'merhaba', 'teşekkür', 'iletişim', 'mesaj', 'gönder']
+    
+    for message in recent_user_messages:
+        message_lower = message.lower()
+        if any(keyword in message_lower for keyword in turkish_keywords):
+            return "tr"
+    
+    return "en"
+
 class EmailTool:
     """SMTP email functionality"""
     
@@ -333,18 +349,63 @@ Response:"""
         except Exception as e:
             return f"Error generating response: {e}"
 
-def render_email_verification_card(email_data: Dict[str, str]):
+def get_ui_text(language: str) -> Dict[str, str]:
+    """Get UI text based on language"""
+    if language == "tr":
+        return {
+            "email_review_title": "📧 **Lütfen e-postanızı göndermeden önce kontrol edin:**",
+            "from_label": "**Gönderen:**",
+            "email_label": "**E-posta:**",
+            "message_label": "**Mesaj:**",
+            "send_button": "✅ E-postayı Gönder",
+            "cancel_button": "❌ İptal Et",
+            "edit_button": "✏️ Mesajı Düzenle",
+            "edit_title": "✏️ **E-postanızı düzenleyin:**",
+            "name_field": "Adınız",
+            "email_field": "E-posta Adresiniz",
+            "message_field": "Mesaj",
+            "save_button": "💾 Değişiklikleri Kaydet",
+            "cancel_edit_button": "❌ Düzenlemeyi İptal Et",
+            "email_sent": "✅ E-posta başarıyla gönderildi! Selman size yakında dönüş yapacak.",
+            "email_failed": "❌ E-posta gönderilemedi: ",
+            "email_cancelled": "E-posta iptal edildi. Başka bir konuda yardımcı olabileceğim bir şey var mı?",
+            "email_prepared": "E-postanız Selman'a hazırlandı. Lütfen göndermeden önce aşağıdaki detayları kontrol edin."
+        }
+    else:  # English
+        return {
+            "email_review_title": "📧 **Please review your email before sending:**",
+            "from_label": "**From:**",
+            "email_label": "**Email:**",
+            "message_label": "**Message:**",
+            "send_button": "✅ Send Email",
+            "cancel_button": "❌ Cancel",
+            "edit_button": "✏️ Edit Message",
+            "edit_title": "✏️ **Edit your email:**",
+            "name_field": "Your Name",
+            "email_field": "Your Email",
+            "message_field": "Message",
+            "save_button": "💾 Save Changes",
+            "cancel_edit_button": "❌ Cancel Editing",
+            "email_sent": "✅ Email sent successfully! Selman will get back to you soon.",
+            "email_failed": "❌ Failed to send email: ",
+            "email_cancelled": "Email cancelled. Is there anything else I can help you with?",
+            "email_prepared": "I've prepared your email to Selman. Please review the details below before sending."
+        }
+
+def render_email_verification_card(email_data: Dict[str, str], language: str):
     """Render email verification card within the chat message"""
+    ui_text = get_ui_text(language)
+    
     with st.container():
-        st.info("📧 **Please review your email before sending:**")
+        st.info(ui_text["email_review_title"])
         
         # Display email details in a nice format
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            st.markdown("**From:**")
-            st.markdown("**Email:**")
-            st.markdown("**Message:**")
+            st.markdown(ui_text["from_label"])
+            st.markdown(ui_text["email_label"])
+            st.markdown(ui_text["message_label"])
         
         with col2:
             st.markdown(f"{email_data['sender_name']}")
@@ -355,35 +416,37 @@ def render_email_verification_card(email_data: Dict[str, str]):
         col1, col2, col3 = st.columns([1, 1, 2])
         
         with col1:
-            if st.button("✅ Send Email", type="primary", key="send_email_btn"):
+            if st.button(ui_text["send_button"], type="primary", key="send_email_btn"):
                 st.session_state.email_action = "send"
                 st.rerun()
         
         with col2:
-            if st.button("❌ Cancel", key="cancel_email_btn"):
+            if st.button(ui_text["cancel_button"], key="cancel_email_btn"):
                 st.session_state.email_action = "cancel"
                 st.rerun()
         
         with col3:
-            if st.button("✏️ Edit Message", key="edit_email_btn"):
+            if st.button(ui_text["edit_button"], key="edit_email_btn"):
                 st.session_state.email_action = "edit"
                 st.rerun()
 
-def render_email_editor_card(email_data: Dict[str, str]):
+def render_email_editor_card(email_data: Dict[str, str], language: str):
     """Render email editor card within the chat message"""
+    ui_text = get_ui_text(language)
+    
     with st.container():
-        st.info("✏️ **Edit your email:**")
+        st.info(ui_text["edit_title"])
         
         # Editable fields
         with st.form("email_editor", clear_on_submit=False):
-            sender_name = st.text_input("Your Name", value=email_data['sender_name'])
-            sender_email = st.text_input("Your Email", value=email_data['sender_email'])
-            message = st.text_area("Message", value=email_data['message'], height=150)
+            sender_name = st.text_input(ui_text["name_field"], value=email_data['sender_name'])
+            sender_email = st.text_input(ui_text["email_field"], value=email_data['sender_email'])
+            message = st.text_area(ui_text["message_field"], value=email_data['message'], height=150)
             
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.form_submit_button("💾 Save Changes", type="primary"):
+                if st.form_submit_button(ui_text["save_button"], type="primary"):
                     # Update email data
                     st.session_state.pending_email = {
                         'sender_name': sender_name,
@@ -396,7 +459,7 @@ def render_email_editor_card(email_data: Dict[str, str]):
                     st.rerun()
             
             with col2:
-                if st.form_submit_button("❌ Cancel Editing"):
+                if st.form_submit_button(ui_text["cancel_edit_button"]):
                     st.session_state.editing_email = False
                     st.session_state.email_action = None
                     st.rerun()
@@ -428,12 +491,16 @@ def main():
     if not rag_system.email_tool.email_user or not rag_system.email_tool.email_password:
         st.warning("⚠️ Email functionality is not configured. Please set EMAIL_USER and EMAIL_PASSWORD environment variables.")
     
+    # Detect language from conversation
+    language = detect_language_from_messages(st.session_state.get("messages", []))
+    ui_text = get_ui_text(language)
+    
     # Handle email actions
     if "email_action" in st.session_state and st.session_state.email_action:
         if st.session_state.email_action == "send":
             # Send the email
             email_data = st.session_state.pending_email
-            with st.spinner("Sending email..."):
+            with st.spinner("Sending email..." if language == "en" else "E-posta gönderiliyor..."):
                 result = rag_system.email_tool.send_email(
                     email_data['sender_name'],
                     email_data['sender_email'],
@@ -447,9 +514,9 @@ def main():
             
             # Add result to messages
             if result["success"]:
-                message_content = f"✅ {result['message']}"
+                message_content = ui_text["email_sent"]
             else:
-                message_content = f"❌ {result['message']}"
+                message_content = ui_text["email_failed"] + result['message']
             
             st.session_state.messages.append({"role": "assistant", "content": message_content})
             st.rerun()
@@ -459,7 +526,7 @@ def main():
             del st.session_state.email_action
             st.session_state.messages.append({
                 "role": "assistant", 
-                "content": "Email cancelled. Is there anything else I can help you with?"
+                "content": ui_text["email_cancelled"]
             })
             st.rerun()
         
@@ -479,16 +546,16 @@ def main():
         with st.chat_message(message["role"]):
             # Check if this is the last message and we have a pending email
             if (i == len(st.session_state.messages) - 1 and 
-                message.get("content") == "I've prepared your email to Selman. Please review the details below before sending." and
+                message.get("content") in [ui_text["email_prepared"], "I've prepared your email to Selman. Please review the details below before sending."] and
                 "pending_email" in st.session_state):
                 
                 st.write(message["content"])
                 
                 # Show email card within the message
                 if st.session_state.get("editing_email", False):
-                    render_email_editor_card(st.session_state.pending_email)
+                    render_email_editor_card(st.session_state.pending_email, language)
                 else:
-                    render_email_verification_card(st.session_state.pending_email)
+                    render_email_verification_card(st.session_state.pending_email, language)
             else:
                 st.write(message["content"])
     
@@ -499,21 +566,25 @@ def main():
         with st.chat_message("user"):
             st.write(prompt)
         
+        # Detect language again after new message
+        language = detect_language_from_messages(st.session_state.messages)
+        ui_text = get_ui_text(language)
+        
         # Generate response
         with st.chat_message("assistant"):
-            with st.spinner("Processing your request..."):
+            with st.spinner("Processing your request..." if language == "en" else "İsteğiniz işleniyor..."):
                 response = rag_system.generate_response(prompt, st.session_state.messages)
             
             # Check if email was prepared
             if response == "EMAIL_PREPARED_FOR_REVIEW":
                 # Show a message and the email card
-                message = "I've prepared your email to Selman. Please review the details below before sending."
+                message = ui_text["email_prepared"]
                 st.write(message)
                 st.session_state.messages.append({"role": "assistant", "content": message})
                 
                 # Show the email verification card
                 if "pending_email" in st.session_state:
-                    render_email_verification_card(st.session_state.pending_email)
+                    render_email_verification_card(st.session_state.pending_email, language)
             else:
                 st.write(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
