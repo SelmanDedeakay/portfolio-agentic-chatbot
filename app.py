@@ -21,12 +21,12 @@ class GeminiEmbeddingRAG:
             if api_key:
                 self.client = genai.Client(api_key=api_key)
                 self.configured = True
-                st.success("✅ Gemini API configured for embeddings and generation")
+                st.success("✅ Chatbot configured for embeddings and generation")
             else:
                 self.configured = False
-                st.error("❌ Gemini API key not found")
+                st.error("❌ We are having trouble connecting to Chatbot.")
         except Exception as e:
-            st.error(f"❌ Gemini setup failed: {e}")
+            st.error(f"❌ Chatbot setup failed: {e}")
             self.configured = False
         
         if self.configured:
@@ -71,7 +71,7 @@ class GeminiEmbeddingRAG:
                         self.cv_embeddings = self.get_embeddings(self.cv_chunks)
                     
                     if self.cv_embeddings:
-                        st.success(f"✅ Loaded {len(self.cv_chunks)} chunks with Gemini embeddings")
+                        st.success(f"✅ Loaded {len(self.cv_chunks)} chunks from CV")
                     else:
                         st.error("❌ Failed to generate embeddings")
                 else:
@@ -79,35 +79,6 @@ class GeminiEmbeddingRAG:
                     self.cv_chunks = ["CV file is empty or unreadable"]
             else:
                 st.error(f"❌ CV file '{self.cv_path}' not found. Please upload it to the app directory.")
-                # Add sample CV data for testing
-                sample_cv = """
-                Selman Özkan - Software Engineer
-                
-                EDUCATION:
-                - Computer Science Degree from XYZ University
-                - Graduated with honors in 2020
-                
-                WORK EXPERIENCE:
-                - Software Engineer at ABC Company (2021-2023)
-                - Full-stack developer using Python, JavaScript, React
-                - Machine Learning Engineer at DEF Corp (2023-present)
-                - Developing AI solutions using TensorFlow and PyTorch
-                
-                SKILLS:
-                - Programming: Python, JavaScript, Java, C++
-                - Frameworks: React, Django, Flask, FastAPI
-                - Machine Learning: TensorFlow, PyTorch, scikit-learn
-                - Databases: PostgreSQL, MongoDB, Redis
-                - Cloud: AWS, Docker, Kubernetes
-                
-                CONTACT:
-                - Email: selman@example.com
-                - LinkedIn: linkedin.com/in/selman
-                """
-                self.cv_chunks = self._chunk_text(sample_cv)
-                with st.spinner("Generating embeddings for sample CV..."):
-                    self.cv_embeddings = self.get_embeddings(self.cv_chunks)
-                st.info("Using sample CV data for demonstration")
                 
         except Exception as e:
             st.error(f"Error loading CV: {e}")
@@ -221,8 +192,8 @@ def main():
         layout="centered"
     )
     
-    st.title("🔍 RAG with Gemini Embeddings")
-    st.caption("Using Gemini text-embedding-004 model for semantic search")
+    st.title("Welcome!")
+    st.caption("I'm Selman's AI portfolio assistant, what would you like to know about him?")
     
     # Initialize RAG system
     if "rag_system" not in st.session_state:
@@ -263,7 +234,7 @@ def main():
     
     # Sidebar info
     with st.sidebar:
-        st.markdown("### 🔍 Gemini Embeddings RAG")
+        st.markdown("### 🔍 So you are a curious one :)")
         st.markdown("- **Embeddings**: text-embedding-004")
         st.markdown("- **Generation**: gemini-1.5-flash")
         st.markdown("- **Vector dims**: 3072")
