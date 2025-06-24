@@ -151,12 +151,8 @@ class GeminiEmbeddingRAG:
         # Create context
         context = "\n\n".join([chunk["text"] for chunk in relevant_chunks])
         
-        # Show similarity scores for debugging
-        if relevant_chunks:
-            st.info(f"Top similarity: {relevant_chunks[0]['similarity']:.3f}")
-        
         # Generate response
-        prompt = f"""You are Selman's AI portfolio assistant. Answer questions about Selman based on his CV.
+        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. Answer questions about Selman based on his CV.
 
 Rules:
 - Only use information from the provided context
@@ -176,7 +172,7 @@ Response:"""
                 model="gemini-1.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.4,
+                    temperature=0.5,
                     max_output_tokens=400
                 )
             )
@@ -187,7 +183,7 @@ Response:"""
 # Streamlit App
 def main():
     st.set_page_config(
-        page_title="Gemini Embeddings RAG",
+        page_title="Selman DEDEAKAYOĞULLARI Portfolio RAG Chatbot",
         page_icon="🔍",
         layout="centered"
     )
@@ -197,7 +193,7 @@ def main():
     
     # Initialize RAG system
     if "rag_system" not in st.session_state:
-        with st.spinner("Initializing Gemini embeddings..."):
+        with st.spinner("Initializing Chatbot"):
             st.session_state.rag_system = GeminiEmbeddingRAG()
     
     rag_system = st.session_state.rag_system
@@ -210,7 +206,7 @@ def main():
     # Chat interface
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Hello! I can answer questions about Selman using Gemini embeddings for semantic search. What would you like to know?"}
+            {"role": "assistant", "content": "Hello! I'm here to answer questions about Selman. What would you like to know?"}
         ]
     
     # Display messages
@@ -227,7 +223,7 @@ def main():
         
         # Generate response
         with st.chat_message("assistant"):
-            with st.spinner("Searching with Gemini embeddings..."):
+            with st.spinner("Searching in Selman's CV..."):
                 response = rag_system.generate_response(prompt)
             st.write(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
