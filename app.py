@@ -40,14 +40,12 @@ class GeminiEmbeddingRAG:
         try:
             embeddings = []
             for text in texts:
-                # Use Gemini embedding model
+                # Use Gemini embedding model with correct API
                 response = self.client.models.embed_content(
-                    model="models/text-embedding-004",  # Latest embedding model
-                    content=text,
-                    task_type="retrieval_document",  # For document search
-                    title="CV Content"
+                    model="models/text-embedding-004",
+                    contents=[text]  # Pass as list
                 )
-                embeddings.append(response.embedding)
+                embeddings.append(response.embeddings[0].values)
             return embeddings
         except Exception as e:
             st.error(f"Embedding error: {e}")
