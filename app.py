@@ -62,20 +62,52 @@ class GeminiEmbeddingRAG:
                     for page in pdf_reader.pages:
                         text += page.extract_text() + "\n"
                 
-                # Chunk the text
-                self.cv_chunks = self._chunk_text(text)
-                
-                # Generate embeddings using Gemini
-                with st.spinner(f"Generating embeddings for {len(self.cv_chunks)} chunks..."):
-                    self.cv_embeddings = self.get_embeddings(self.cv_chunks)
-                
-                if self.cv_embeddings:
-                    st.success(f"✅ Loaded {len(self.cv_chunks)} chunks with Gemini embeddings")
+                if text.strip():
+                    # Chunk the text
+                    self.cv_chunks = self._chunk_text(text)
+                    
+                    # Generate embeddings using Gemini
+                    with st.spinner(f"Generating embeddings for {len(self.cv_chunks)} chunks..."):
+                        self.cv_embeddings = self.get_embeddings(self.cv_chunks)
+                    
+                    if self.cv_embeddings:
+                        st.success(f"✅ Loaded {len(self.cv_chunks)} chunks with Gemini embeddings")
+                    else:
+                        st.error("❌ Failed to generate embeddings")
                 else:
-                    st.error("❌ Failed to generate embeddings")
+                    st.error("❌ PDF file is empty or unreadable")
+                    self.cv_chunks = ["CV file is empty or unreadable"]
             else:
-                st.warning(f"CV file {self.cv_path} not found")
-                self.cv_chunks = ["CV file not available"]
+                st.error(f"❌ CV file '{self.cv_path}' not found. Please upload it to the app directory.")
+                # Add sample CV data for testing
+                sample_cv = """
+                Selman Özkan - Software Engineer
+                
+                EDUCATION:
+                - Computer Science Degree from XYZ University
+                - Graduated with honors in 2020
+                
+                WORK EXPERIENCE:
+                - Software Engineer at ABC Company (2021-2023)
+                - Full-stack developer using Python, JavaScript, React
+                - Machine Learning Engineer at DEF Corp (2023-present)
+                - Developing AI solutions using TensorFlow and PyTorch
+                
+                SKILLS:
+                - Programming: Python, JavaScript, Java, C++
+                - Frameworks: React, Django, Flask, FastAPI
+                - Machine Learning: TensorFlow, PyTorch, scikit-learn
+                - Databases: PostgreSQL, MongoDB, Redis
+                - Cloud: AWS, Docker, Kubernetes
+                
+                CONTACT:
+                - Email: selman@example.com
+                - LinkedIn: linkedin.com/in/selman
+                """
+                self.cv_chunks = self._chunk_text(sample_cv)
+                with st.spinner("Generating embeddings for sample CV..."):
+                    self.cv_embeddings = self.get_embeddings(self.cv_chunks)
+                st.info("Using sample CV data for demonstration")
                 
         except Exception as e:
             st.error(f"Error loading CV: {e}")
