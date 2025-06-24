@@ -11,23 +11,25 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class GeminiLLM:
-    """Wrapper for Google Gemini API"""
+    """Wrapper for Google Gemini API using google-genai 1.21.1"""
     
     def __init__(self):
         try:
-            # Try to get API key from Streamlit secrets first, then environment
+            # Get API key from Streamlit secrets or environment
             api_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
             if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                # Initialize the client with the new API
+                self.client = genai.Client(api_key=api_key)
+                self.model_id = "gemini-1.5-flash"
                 self.configured = True
-                logger.info("Gemini API configured successfully")
+                logger.info("Gemini API configured successfully with google-genai 1.21.1")
             else:
                 self.configured = False
                 logger.warning("Gemini API key not found")
@@ -36,7 +38,7 @@ class GeminiLLM:
             self.configured = False
     
     def generate(self, prompt: str, context: str) -> str:
-        """Generate response using Gemini"""
+        """Generate response using Gemini 1.5 Flash"""
         if not self.configured:
             return "Gemini API not configured. Please set GEMINI_API_KEY in your environment or Streamlit secrets."
         
@@ -57,16 +59,25 @@ User Question: {prompt}
 Please provide a helpful and accurate response based on the CV context above:"""
         
         try:
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
+            # Use the new API structure
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.7,
                     max_output_tokens=512,
                     top_p=0.8,
-                    top_k=40
+                    top_k=40,
+                    stop_sequences=["Human:", "User:", "Question:"],
                 )
             )
-            return response.text
+            
+            # Extract text from response
+            if response.text:
+                return response.text
+            else:
+                return "I couldn't generate a response. Please try again."
+                
         except Exception as e:
             logger.error(f"Gemini generation error: {e}")
             return f"I apologize, but I encountered an error while generating a response. Please try again."
@@ -295,7 +306,7 @@ class ToolCallingAgent:
         is_question = any(message_lower.startswith(q) for q in ['what', 'where', 'when', 'who', 'how', 'which', 'can', 'could', 'would', 'is', 'are', 'do', 'does', 'tell', 'explain'])
         has_question_mark = '?' in user_message
         
-        # Count keyword matches
+                # Count keyword matches
         cv_score = sum(1 for keyword in cv_keywords if keyword in message_lower)
         contact_score = sum(1 for keyword in contact_keywords if keyword in message_lower)
         greeting_score = sum(1 for keyword in greeting_keywords if keyword in message_lower)
@@ -316,7 +327,7 @@ class ToolCallingAgent:
             confidence = min((cv_score / 5) + (0.3 if is_question else 0) + (0.2 if has_question_mark else 0), 1.0)
             return {"intent": "cv_query", "confidence": confidence}
         else:
-                       # Default to general/cv_query for ambiguous cases
+            # Default to general/cv_query for ambiguous cases
             return {"intent": "cv_query", "confidence": 0.5}
     
     def generate_response(self, user_message: str) -> str:
@@ -331,7 +342,7 @@ class ToolCallingAgent:
             
             if intent == "greeting":
                 responses = [
-                    "Hello! I'm Selman's AI assistant powered by Gemini. I can help you learn about his background, experience, and skills from his CV. What would you like to know?",
+                    "Hello! I'm Selman's AI assistant powered by Gemini 1.5 Flash. I can help you learn about his background, experience, and skills from his CV. What would you like to know?",
                     "Hi there! I have access to Selman's CV and can answer questions about his education, work experience, projects, and skills. How can I help you today?",
                     "Hey! Welcome to Selman's portfolio. I can provide detailed information about his professional background using AI-powered search. What interests you?"
                 ]
@@ -420,12 +431,16 @@ def main():
             border-radius: 0.5rem;
             margin-bottom: 1rem;
         }
+        .stSpinner > div {
+            text-align: center;
+            color: #1f77b4;
+        }
         </style>
     """, unsafe_allow_html=True)
     
     # Header
     st.title("🤖 Selman's AI Portfolio Assistant")
-    st.caption("Powered by Gemini 1.5 Flash and RAG")
+    st.caption("Powered by Gemini 1.5 Flash and RAG (google-genai 1.21.1)")
     
     # Sidebar
     with st.sidebar:
@@ -440,10 +455,11 @@ def main():
         
         st.markdown("---")
         
-        st.markdown("### 🛠️ How it works:")
-        st.markdown("1. I use **semantic search** to find relevant information from Selman's CV")
-        st.markdown("2. **Gemini AI** analyzes the context and generates accurate responses")
-        st.markdown("3. All answers are based on actual CV content")
+        st.markdown("### 🛠️ Technical Stack:")
+        st.markdown("- **LLM**: Gemini 1.5 Flash")
+        st.markdown("- **Library**: google-genai 1.21.1")
+        st.markdown("- **Embeddings**: Sentence Transformers")
+        st.markdown("- **Vector Search**: Cosine Similarity")
         
         st.markdown("---")
         
@@ -451,16 +467,17 @@ def main():
         if st.checkbox("Show debug info"):
             agent = load_agent()
             st.markdown("### Debug Information")
-            st.markdown(f"- CV Loaded: {'Yes' if agent.tools['search_cv'].cv_chunks else 'No'}")
+            st.markdown(f"- CV Loaded: {'✅' if agent.tools['search_cv'].cv_chunks else '❌'}")
             st.markdown(f"- Number of chunks: {len(agent.tools['search_cv'].cv_chunks)}")
-            st.markdown(f"- Gemini configured: {'Yes' if agent.llm.configured else 'No'}")
+            st.markdown(f"- Gemini configured: {'✅' if agent.llm.configured else '❌'}")
+            st.markdown(f"- Email configured: {'✅' if agent.tools['send_email'].sender_email else '❌'}")
     
     # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
         # Add welcome message
         welcome_message = (
-            "Hello! I'm Selman's AI portfolio assistant, powered by Google's Gemini 1.5 Flash and RAG technology. "
+            "Hello! I'm Selman's AI portfolio assistant, powered by Google's Gemini 1.5 Flash using the latest google-genai library. "
             "I can answer questions about his education, work experience, skills, and projects based on his CV. "
             "What would you like to know?"
         )
@@ -488,7 +505,7 @@ def main():
         with st.chat_message("assistant"):
             try:
                 # Show thinking indicator
-                with st.spinner("Thinking..."):
+                with st.spinner("Analyzing your question and searching CV..."):
                     response = agent.generate_response(prompt)
                 
                 # Display response
@@ -503,32 +520,56 @@ def main():
                 st.session_state.messages.append({"role": "assistant", "content": error_msg})
                 logger.error(f"Chat error: {e}")
     
+    # Footer with example questions
+    with st.expander("💭 Example questions you can ask:"):
+        example_questions = [
+            "What is Selman's educational background?",
+            "What programming languages does Selman know?",
+            "Tell me about Selman's work experience",
+            "What projects has Selman worked on?",
+            "What are Selman's technical skills?",
+            "Does Selman have experience with machine learning?",
+            "I'd like to contact Selman about a job opportunity. My email is example@email.com"
+        ]
+        for question in example_questions:
+            st.markdown(f"- {question}")
+    
     # Footer
     st.markdown("---")
-    st.caption("💡 Tip: Try asking about specific skills, projects, or educational background!")
+    st.caption("💡 Tip: The more specific your question, the better I can search Selman's CV for relevant information!")
 
 if __name__ == "__main__":
     # Check for required packages
     required_packages = {
-        'google-generativeai': 'google-generativeai',
+        'google-genai': 'google-genai>=1.21.1',
         'sentence-transformers': 'sentence-transformers',
         'PyPDF2': 'PyPDF2',
         'scikit-learn': 'scikit-learn',
-        'numpy': 'numpy'
+        'numpy': 'numpy',
+        'streamlit': 'streamlit'
     }
     
     # Display installation instructions if needed
     missing_packages = []
-    for package, pip_name in required_packages.items():
+    package_check = {
+        'google-genai': 'google.genai',
+        'sentence-transformers': 'sentence_transformers',
+        'PyPDF2': 'PyPDF2',
+        'scikit-learn': 'sklearn',
+        'numpy': 'numpy',
+        'streamlit': 'streamlit'
+    }
+    
+    for package, import_name in package_check.items():
         try:
-            __import__(package.replace('-', '_'))
+            __import__(import_name)
         except ImportError:
-            missing_packages.append(pip_name)
+            missing_packages.append(required_packages[package])
     
     if missing_packages:
-        st.error(f"Missing required packages: {', '.join(missing_packages)}")
+        st.error(f"Missing required packages!")
         st.code(f"pip install {' '.join(missing_packages)}")
+        st.info("Please install the missing packages and restart the app.")
         st.stop()
     
-    # Run the app
     main()
