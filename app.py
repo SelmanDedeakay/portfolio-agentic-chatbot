@@ -238,11 +238,14 @@ Response (use tools when needed):"""
 
         if self.model and self.tokenizer:
             try:
-                inputs = self.tokenizer.encode(system_prompt, return_tensors="pt", max_length=512, truncation=True)
+                encoded = self.tokenizer(system_prompt, return_tensors="pt", max_length=512, truncation=True, padding=True)
+                inputs = encoded['input_ids']
+                attention_mask = encoded['attention_mask']
                 
                 with torch.no_grad():
                     outputs = self.model.generate(
                         inputs,
+                        attention_mask=attention_mask,
                         max_length=inputs.shape[1] + 150,
                         temperature=0.7,
                         do_sample=True,
@@ -269,10 +272,14 @@ Tool results: {' '.join(tool_results)}
 
 Response:"""
                     
-                    final_inputs = self.tokenizer.encode(final_prompt, return_tensors="pt", max_length=512, truncation=True)
+                    final_encoded = self.tokenizer(final_prompt, return_tensors="pt", max_length=512, truncation=True, padding=True)
+                    final_inputs = final_encoded['input_ids']
+                    final_attention_mask = final_encoded['attention_mask']
+                    
                     with torch.no_grad():
                         final_outputs = self.model.generate(
                             final_inputs,
+                            attention_mask=final_attention_mask,
                             max_length=final_inputs.shape[1] + 100,
                             temperature=0.7,
                             do_sample=True,
