@@ -10,6 +10,7 @@ import json
 
 # Import ayrıştırılmış araçlar ve bileşenler
 from tools.email_tool import EmailTool
+from tools.social_media_tool import SocialMediaAggregator
 from tools.tool_definitions import ToolDefinitions
 from ui.email_components import get_ui_text, render_email_verification_card, render_email_editor_card
 
@@ -43,6 +44,7 @@ class GeminiEmbeddingRAG:
         self.cv_embeddings = None
         self.email_tool = EmailTool()
         self.tool_definitions = ToolDefinitions()
+        self.social_media_aggregator = SocialMediaAggregator()  # Add this line
         
         # Initialize Gemini client
         try:
@@ -261,54 +263,54 @@ class GeminiEmbeddingRAG:
         if not self.configured:
             return "Gemini API not configured"
         
-        # Get conversation context for better email handling
+        # Get conversation context for better tool handling
         recent_context = ""
         if conversation_history and len(conversation_history) > 1:
             recent_context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-4:]])
         
-        # Sorgu tipini belirle
+        # Detect if user is asking about social media/posts
         query_lower = query.lower()
+        social_keywords = ['post', 'article', 'medium', 'linkedin', 'social media', 'paylaşım', 'makale', 'yazı']
+        is_social_query = any(keyword in query_lower for keyword in social_keywords)
+        
+        # Regular RAG search (still important for CV info)
         is_project_query = any(word in query_lower for word in ['proje', 'project', 'yaptığı', 'geliştirdiği'])
         is_experience_query = any(word in query_lower for word in ['deneyim', 'experience', 'çalış', 'work', 'iş'])
         
-        # Eğer proje veya deneyim sorgusu ise, daha fazla chunk al
         top_k = 6 if (is_project_query or is_experience_query) else 4
-        
-        # Regular RAG response
         relevant_chunks = self.search_similar_chunks(query, top_k=top_k)
         context = "\n\n".join([chunk["text"] for chunk in relevant_chunks])
         
-        # Enhanced prompt with Turkish support and smart email handling
-        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You can respond in either English or Turkish based on the user's language preference.
+        # Enhanced prompt with social media tool awareness
+        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You are embedded in his portfolio website. Visitors will ask questions to you. You can respond in either English or Turkish based on the user's language preference.
 
-    Rules:
-    - Respond in the same language as the user's query
-    - Only use information from the provided context for CV questions
-    - Be professional and helpful
-    - Use markdown formatting for clarity
-    - When asked about projects or work experience, list ALL relevant items from the context
-    - For project questions, include project names, technologies used, and descriptions
-    - For experience questions, include company names, positions, durations, and descriptions
+Rules:
+- Respond in the same language as the user's query
+- Only use information from the provided context for CV questions
+- Be professional and helpful
+- Use markdown formatting for clarity and readability.
+- If the user asks for references,  display them and add a note that contact information is available upon request
+- When asked about projects or work experience, list ALL relevant items from the context
+- For project questions, include project names, technologies used, and descriptions. Do not give links unless asked specifically. When talking about "Agentic Portfolio Bot" make a joke about it, since it is you.
+- For experience questions, include company names, positions, durations, and descriptions
 
-    TOOL USAGE:
-    - Use prepare_email tool when someone wants to contact Selman and you have ALL required information
-    - Only ask for: sender name, sender email, and message content
-    - DO NOT ask for email subject - it will be automatically set
-    - Extract information naturally from conversation context
-    - If someone wants to contact Selman but you don't have complete info, ask for missing details conversationally
-    - Don't repeat requests for information already provided in the conversation
+TOOL USAGE:
+- Use prepare_email tool when someone wants to contact Selman and you have ALL required information
+- Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content, LinkedIn activity, or social media
+- Only ask for email details: sender name, sender email, and message content
+- DO NOT ask for email subject - it will be automatically set
+- Extract information naturally from conversation context
+- If someone wants to contact Selman but you don't have complete info, ask for missing details conversationally
 
-    Recent Conversation Context:
-    {recent_context}
+Recent Conversation Context:
+{recent_context}
 
-    CV Context:
-    {context}
+CV Context:
+{context}
 
-    User Question: {query}
+User Question: {query}
 
-    Response:"""
-    
-    # Rest of the method remains the same...
+Response:"""
         
         try:
             response = self.client.models.generate_content(
@@ -316,7 +318,7 @@ class GeminiEmbeddingRAG:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=600,
+                    max_output_tokens=800,  # Increased for social media content
                     tools=self.tool_definitions.get_all_tools()
                 )
             )
@@ -331,8 +333,12 @@ class GeminiEmbeddingRAG:
                         
                         result = self.tool_definitions.execute_tool(tool_name, tool_args)
                         
-                        if result["success"] and tool_name == "prepare_email":
-                            return "EMAIL_PREPARED_FOR_REVIEW"
+                        if result["success"]:
+                            if tool_name == "prepare_email":
+                                return "EMAIL_PREPARED_FOR_REVIEW"
+                            elif tool_name == "get_recent_posts":
+                                # Return the formatted social media content
+                                return result["data"]["formatted_response"]
             
             return response.text if response.text else "No response generated"
             
