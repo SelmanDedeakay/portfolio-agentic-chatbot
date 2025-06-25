@@ -1,3 +1,5 @@
+# app.py
+
 import streamlit as st
 import os
 import numpy as np
@@ -44,7 +46,7 @@ class GeminiEmbeddingRAG:
         self.cv_embeddings = None
         self.email_tool = EmailTool()
         self.tool_definitions = ToolDefinitions()
-        self.social_media_aggregator = SocialMediaAggregator()  # Add this line
+        self.social_media_aggregator = SocialMediaAggregator()
         
         # Initialize Gemini client
         try:
@@ -104,13 +106,43 @@ class GeminiEmbeddingRAG:
         
         # Education chunks - HER BİRİ İÇİN AYRI CHUNK
         for edu in data['education']:
-            edu_text = f"Education: {edu['institution']}\n"
-            edu_text += f"Degree/Program: {edu.get('degree', edu.get('program', 'N/A'))}\n"
-            edu_text += f"Years: {edu.get('years', edu.get('year', 'N/A'))}\n"
-            edu_text += f"Location: {edu['location']}"
-            if 'memberships' in edu:
-                edu_text += f"\nMemberships: {', '.join(edu['memberships'])}"
+            edu_text = f"Education / Eğitim: {edu.get('institution', 'N/A')}\n"
+            
+            # Degree veya program bilgisi
+            degree_info = edu.get('degree') or edu.get('program', 'N/A')
+            edu_text += f"Degree/Program/Derece: {degree_info}\n"
+            
+            # Yıl bilgisi - years veya year
+            year_info = edu.get('years') or edu.get('year', 'N/A')
+            edu_text += f"Years/Duration/Süre: {year_info}\n"
+            
+            # Lokasyon bilgisi - güvenli erişim
+            location_info = edu.get('location', 'N/A')
+            edu_text += f"Location/Konum: {location_info}\n"
+            
+            # Üyelikler varsa ekle
+            if 'memberships' in edu and edu['memberships']:
+                edu_text += f"Memberships/Üyelikler: {', '.join(edu['memberships'])}\n"
+            
+            # Anahtar kelimeler ekle - daha kapsamlı
+            keywords = [
+                "education", "eğitim", "university", "üniversite", "degree", "derece", 
+                "diploma", "bachelor", "lisans", "graduate", "mezun", "student", "öğrenci",
+                edu.get('institution', '').lower().replace(' ', '_')
+            ]
+            edu_text += f"Keywords: {', '.join(keywords)}"
+            
             chunks.append(edu_text)
+
+        # Tüm eğitim bilgilerini özetleyen ek chunk
+        all_education_text = "Complete Education Background / Tüm Eğitim Geçmişi:\n"
+        for i, edu in enumerate(data['education'], 1):
+            degree_info = edu.get('degree') or edu.get('program', 'Program')
+            year_info = edu.get('years') or edu.get('year', '')
+            all_education_text += f"{i}. {degree_info} - {edu.get('institution', 'N/A')} ({year_info})\n"
+
+        all_education_text += "\nKeywords: complete education, tüm eğitim, educational background, eğitim geçmişi, all degrees, tüm dereceler"
+        chunks.append(all_education_text)
         
         # Experience chunks - DAHA DETAYLI VE ANAHTAR KELİMELER EKLE
         for exp in data['experience']:
@@ -194,6 +226,10 @@ class GeminiEmbeddingRAG:
                     
                     if self.cv_embeddings.size > 0:
                         st.success(f"✅ Loaded Selman's CV data ({len(self.cv_chunks)} chunks)")
+                        
+                        # Initialize job compatibility analyzer with CV data
+                        self.tool_definitions.initialize_job_analyzer(self.client, self.cv_data,self)
+                        
                     else:
                         st.error("❌ Failed to generate embeddings")
                 else:
@@ -214,14 +250,27 @@ class GeminiEmbeddingRAG:
         
         # Anahtar kelime eşleştirmesi için özel ağırlıklar
         keyword_boosts = {
-            'proje': ['project', 'proje'],
-            'projects': ['project', 'proje'],
-            'deneyim': ['experience', 'deneyim', 'work', 'iş'],
-            'experience': ['experience', 'deneyim', 'work', 'iş'],
-            'work': ['experience', 'deneyim', 'work', 'iş'],
-            'iş': ['experience', 'deneyim', 'work', 'iş'],
-            'çalış': ['experience', 'deneyim', 'work', 'iş'],
-        }
+        'proje': ['project', 'proje'],
+        'projects': ['project', 'proje'],
+        'deneyim': ['experience', 'deneyim', 'work', 'iş'],
+        'experience': ['experience', 'deneyim', 'work', 'iş'],
+        'work': ['experience', 'deneyim', 'work', 'iş'],
+        'iş': ['experience', 'deneyim', 'work', 'iş'],
+        'çalış': ['experience', 'deneyim', 'work', 'iş'],
+        # EĞİTİM ANAHTAR KELİMELERİ - EXPANDED
+        'eğitim': ['education', 'eğitim', 'university', 'üniversite', 'degree', 'derece'],
+        'education': ['education', 'eğitim', 'university', 'üniversite', 'degree', 'derece'],
+        'university': ['education', 'eğitim', 'university', 'üniversite'],
+        'üniversite': ['education', 'eğitim', 'university', 'üniversite'],
+        'okul': ['education', 'eğitim', 'school', 'university', 'üniversite'],
+        'mezun': ['graduate', 'education', 'eğitim', 'degree', 'diploma'],
+        'diploma': ['degree', 'diploma', 'education', 'eğitim'],
+        'lisans': ['bachelor', 'degree', 'education', 'eğitim'],
+        'bachelor': ['bachelor', 'lisans', 'degree', 'education'],
+        'erasmus': ['erasmus', 'exchange', 'değişim'],
+        'eskişehir': ['eskişehir', 'technical', 'university'],
+        'vorarlberg': ['vorarlberg', 'austria', 'erasmus'],
+    }
         
         # Embedding hesapla
         query_embedding = self.get_embeddings([query])
@@ -268,39 +317,58 @@ class GeminiEmbeddingRAG:
         if conversation_history and len(conversation_history) > 1:
             recent_context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-4:]])
         
-        # Detect if user is asking about social media/posts
+        # Detect query types
         query_lower = query.lower()
         social_keywords = ['post', 'article', 'medium', 'linkedin', 'social media', 'paylaşım', 'makale', 'yazı']
         is_social_query = any(keyword in query_lower for keyword in social_keywords)
+        
+        # Job compatibility keywords
+        job_keywords = ['job', 'position', 'role', 'hiring', 'recruit', 'vacancy', 'opening', 'career', 'employment', 
+                       'iş', 'pozisyon', 'işe alım', 'kariyer', 'istihdam', 'açık pozisyon']
+        is_job_query = any(keyword in query_lower for keyword in job_keywords)
         
         # Regular RAG search (still important for CV info)
         is_project_query = any(word in query_lower for word in ['proje', 'project', 'yaptığı', 'geliştirdiği'])
         is_experience_query = any(word in query_lower for word in ['deneyim', 'experience', 'çalış', 'work', 'iş'])
         
-        top_k = 6 if (is_project_query or is_experience_query) else 4
+            # Eğitim sorularını tespit etmek için
+        is_education_query = any(word in query_lower for word in [
+            'eğitim', 'education', 'university', 'üniversite', 'okul', 'school', 
+            'mezun', 'graduate', 'diploma', 'degree', 'lisans', 'bachelor',
+            'erasmus', 'exchange', 'öğrenci', 'student'
+        ])
+        
+        # top_k değerini eğitim sorularında artır
+        top_k = 8 if is_education_query else (6 if (is_project_query or is_experience_query) else 4)
         relevant_chunks = self.search_similar_chunks(query, top_k=top_k)
         context = "\n\n".join([chunk["text"] for chunk in relevant_chunks])
         
-        # Enhanced prompt with social media tool awareness
-        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You are embedded in his portfolio website. Visitors will ask questions to you. You can respond in either English or Turkish based on the user's language preference.
+        # Enhanced prompt with all tool awareness
+        # app.py'de generate_response metodunun prompt kısmını güncelleyin:
+
+        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You are embedded in his portfolio website. Visitors will ask questions to you, ask their names. You can respond in either English or Turkish based on the user's language preference.
 
 Rules:
 - Respond in the same language as the user's query
 - Only use information from the provided context for CV questions
 - Be professional and helpful
 - Use markdown formatting for clarity and readability.
-- If the user asks for references,  display them and add a note that contact information is available upon request
+- If the user asks for references, display them and add a note that contact information is available upon request
 - When asked about projects or work experience, list ALL relevant items from the context
 - For project questions, include project names, technologies used, and descriptions. Do not give links unless asked specifically. When talking about "Agentic Portfolio Bot" make a joke about it, since it is you.
 - For experience questions, include company names, positions, durations, and descriptions
+- SELMAN IS GRADUATED.
 
 TOOL USAGE:
 - Use prepare_email tool when someone wants to contact Selman and you have ALL required information
 - Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content, LinkedIn activity, or social media
+- Use analyze_job_compatibility tool when someone provides a job description or asks about fit for a specific role
+- Use generate_compatibility_pdf tool when user asks for PDF, download, or wants to save the job compatibility report
 - Only ask for email details: sender name and surname, sender email, and message content. Do not skip any of these.
 - DO NOT ask for email subject - it will be automatically set
 - Extract information naturally from conversation context
 - If someone wants to contact Selman but you don't have complete info, ALWAYS ask for missing details conversationally
+- After generating a job compatibility report, mention that user can ask for a PDF version to download
 
 Recent Conversation Context:
 {recent_context}
@@ -310,6 +378,7 @@ CV Context:
 
 User Question: {query}
 
+Let’s work this out in a step-by-step way to be sure we have the right answer.
 Response:"""
         
         try:
@@ -317,8 +386,8 @@ Response:"""
                 model="gemini-2.5-flash-lite-preview-06-17",
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.3,
-                    max_output_tokens=800,  # Increased for social media content
+                    temperature=0.2,
+                    max_output_tokens=1200,  # Increased for job analysis content
                     tools=self.tool_definitions.get_all_tools()
                 )
             )
@@ -337,17 +406,26 @@ Response:"""
                             if tool_name == "prepare_email":
                                 return "EMAIL_PREPARED_FOR_REVIEW"
                             elif tool_name == "get_recent_posts":
-                                # Return the formatted social media content
                                 return result["data"]["formatted_response"]
-            
+                            elif tool_name == "analyze_job_compatibility":
+                                # MODIFIED: Save the report AND correct job title to session state
+                                st.session_state.last_compatibility_report = result["data"]["report"]
+                                st.session_state.last_job_title = result["data"]["job_title"]
+                                return result["data"]["report"] + "\n\n📄 *You can ask for a PDF version of this report if you'd like to download it!*"
+                            elif tool_name == "generate_compatibility_pdf":
+                                # Return a success message that will trigger the PDF download button
+                                return "PDF_GENERATED"
+                        else:
+                            return f"❌ {result['message']}"
+                    
             return response.text if response.text else "No response generated"
             
         except Exception as e:
-            return f"Error generating response: {e}"
+            # Added more context to the error for easier debugging
+            return f"Error generating response: {e}. The API response might have been empty or invalid."
 
 
-# Streamlit App
-# Streamlit App
+# ... (rest of the app.py file remains the same)
 def main():
     st.set_page_config(
         page_title="Selman DEDEAKAYOĞULLARI Portfolio RAG Chatbot",
@@ -421,7 +499,7 @@ def main():
     # Chat interface
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Hello! I'm here to answer questions about Selman. What would you like to know? I can also help you get in touch with him directly if needed! 📧\n\nMerhaba! Selman hakkında sorularınızı yanıtlayabilirim. Onunla doğrudan iletişime geçmenize de yardımcı olabilirim! 📧"}
+            {"role": "assistant", "content": "Hello! I'm here to answer questions about Selman. What would you like to know? I can also help you get in touch with him directly if needed! 📧\n\nI can also analyze job compatibility if you have a job description you'd like me to review against Selman's profile! 💼\n\nMerhaba! Selman hakkında sorularınızı yanıtlayabilirim. Onunla doğrudan iletişime geçmenize de yardımcı olabilirim! 📧\n\nAyrıca bir iş ilanınız varsa, Selman'ın profiliyle uyumluluğunu analiz edebilirim! 💼"}
         ]
     
     # Display messages
@@ -443,8 +521,9 @@ def main():
                 st.write(message["content"])
     
     # Chat input
-    if prompt := st.chat_input("Ask about Selman's background or request to contact him..."):
+    if prompt := st.chat_input("Ask about Selman's background, request to contact him, or paste a job description for compatibility analysis..."):
         # Add user message
+        
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.write(prompt)
@@ -459,19 +538,37 @@ def main():
                 response = rag_system.generate_response(prompt, st.session_state.messages)
             
             # Check if email was prepared
-            if response == "EMAIL_PREPARED_FOR_REVIEW":
-                # Show a message and the email card
-                message = ui_text["email_prepared"]
-                st.write(message)
-                st.session_state.messages.append({"role": "assistant", "content": message})
-                
-                # Show the email verification card
-                if "pending_email" in st.session_state:
-                    render_email_verification_card(st.session_state.pending_email, language)
-            else:
-                st.write(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-    
+# In the chat interface section, update the response handling:
+        if response == "EMAIL_PREPARED_FOR_REVIEW":
+            message = ui_text["email_prepared"]
+            st.write(message)
+            st.session_state.messages.append({"role": "assistant", "content": message})
+            if "pending_email" in st.session_state:
+                render_email_verification_card(st.session_state.pending_email, language)
+        elif response == "PDF_GENERATED":
+            message = "✅ PDF report generated successfully! You can download it using the button below." if language == "en" else "✅ PDF raporu başarıyla oluşturuldu! Aşağıdaki butona tıklayarak indirebilirsiniz."
+            st.write(message)
+            st.session_state.messages.append({"role": "assistant", "content": message})
+            # The download button will be shown by the existing code below
+        else:
+            st.write(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+    if "pdf_data" in st.session_state and "pdf_filename" in st.session_state:
+        pdf_data = st.session_state.pdf_data
+        pdf_filename = st.session_state.pdf_filename
+        
+        # Create download button that clears data after download
+        st.download_button(
+            label="📄 Download PDF Report / PDF Raporu İndir",
+            data=pdf_data,
+            file_name=pdf_filename,
+            mime="application/pdf",
+            key="download_pdf",
+            on_click=lambda: [
+                st.session_state.pop("pdf_data", None),
+                st.session_state.pop("pdf_filename", None)
+            ]
+        ) 
     # Sidebar info
     with st.sidebar:
         st.markdown("### 🔍 So you are a curious one :)")
@@ -480,12 +577,14 @@ def main():
         st.markdown("- **Vector dims**: 768")
         st.markdown("- **Search**: Cosine similarity")
         st.markdown("- **Tools**: Email with verification 📧")
+        st.markdown("- **Tools**: Social Media Posts 📱")
+        st.markdown("- **Tools**: Job Compatibility Analysis 💼")
         st.markdown("- **Data Source**: JSON")
         
         if rag_system.configured and rag_system.cv_chunks:
             st.markdown(f"- **Chunks loaded**: {len(rag_system.cv_chunks)}")
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
-            
+            st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
 
 if __name__ == "__main__":

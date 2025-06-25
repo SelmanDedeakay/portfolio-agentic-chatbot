@@ -1,17 +1,47 @@
-# Add this to your tools/tool_definitions.py
+# tools/tool_definitions.py
 
 from google.genai.types import Tool, FunctionDeclaration
 from typing import List, Any, Dict
 import streamlit as st
 from tools.social_media_tool import SocialMediaAggregator
-
-
+from tools.job_compatibility_tool import JobCompatibilityAnalyzer
+from tools.pdf_generator import JobCompatibilityPDFGenerator
+from datetime import datetime
 class ToolDefinitions:
     """Tool definitions for function calling"""
     
     def __init__(self):
         self.social_media_aggregator = SocialMediaAggregator()
+        self.job_compatibility_analyzer = None  # Will be initialized with client and CV data
+        self.pdf_generator = JobCompatibilityPDFGenerator()
     
+# In tool_definitions.py, update the initialize_job_analyzer method:
+
+    def initialize_job_analyzer(self, client, cv_data, rag_system=None):
+        """Initialize job compatibility analyzer with RAG system reference"""
+        try:
+            from tools.job_compatibility_tool import JobCompatibilityAnalyzer
+            self.job_compatibility_analyzer = JobCompatibilityAnalyzer(client, cv_data, rag_system)
+            return True
+        except Exception as e:
+            print(f"Error initializing job analyzer: {e}")
+            return False
+     
+    @staticmethod
+    def get_pdf_generation_tool_definition() -> Tool:
+        """
+        Get PDF generation tool definition.
+        MODIFIED: This tool no longer requires parameters. It acts as a trigger
+        to generate a PDF from the last report stored in the session state.
+        """
+        generate_pdf_func = FunctionDeclaration(
+            name="generate_compatibility_pdf",
+            description="Generates a PDF of the most recently created job compatibility report. Use this when the user asks to download, save, or get a PDF of the analysis they just saw.",
+            parameters={"type": "object", "properties": {}} # No parameters needed from the model
+        )
+        
+        return Tool(function_declarations=[generate_pdf_func])
+
     @staticmethod
     def get_email_tool_definition() -> Tool:
         """Get email tool definition for function calling"""
@@ -65,11 +95,37 @@ class ToolDefinitions:
         
         return Tool(function_declarations=[get_posts_func])
     
+    @staticmethod
+    def get_job_compatibility_tool_definition() -> Tool:
+        """Get job compatibility analysis tool definition"""
+        analyze_job_func = FunctionDeclaration(
+            name="analyze_job_compatibility",
+            description="Analyze job compatibility between Selman's profile and a job description. Use this when someone provides a job posting or asks about fit for a specific role.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "job_description": {
+                        "type": "string",
+                        "description": "The full job description text to analyze compatibility against"
+                    },
+                    "company_name": {
+                        "type": "string",
+                        "description": "Name of the company (optional, for personalized analysis)"
+                    }
+                },
+                "required": ["job_description"]
+            }
+        )
+        
+        return Tool(function_declarations=[analyze_job_func])
+    
     def get_all_tools(self) -> List[Tool]:
         """Get all available tools"""
         return [
             self.get_email_tool_definition(),
-            self.get_social_media_tool_definition()
+            self.get_social_media_tool_definition(),
+            self.get_job_compatibility_tool_definition(),
+            self.get_pdf_generation_tool_definition()
         ]
     
     def execute_tool(self, tool_name: str, tool_args: Dict) -> Dict[str, Any]:
@@ -115,6 +171,82 @@ class ToolDefinitions:
                 return {
                     "success": False,
                     "message": f"Error retrieving posts: {str(e)}"
+                }
+        elif tool_name == "generate_compatibility_pdf":
+            try:
+                # MODIFIED: Get report content and job title from session state
+                report_content = st.session_state.get("last_compatibility_report")
+                job_title = st.session_state.get("last_job_title", "Unknown Position")
+                candidate_name = 'Selman Dedeakayoğulları'
+
+                # Guardrail to ensure a report exists to be downloaded
+                if not report_content:
+                    return {
+                        "success": False,
+                        "message": "I couldn't find a report to generate a PDF from. Please run a new analysis first."
+                    }
+
+                language = "tr" if any("tr" in str(msg).lower() for msg in st.session_state.get("messages", [])) else "en"
+                
+                pdf_bytes = self.pdf_generator.generate_pdf(
+                    report_content, job_title, candidate_name, language
+                )
+                
+                st.session_state.pdf_data = pdf_bytes
+                st.session_state.pdf_filename = f"job_compatibility_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                
+                return {
+                    "success": True,
+                    "message": "PDF report generated successfully",
+                    "data": {
+                        "pdf_size": len(pdf_bytes),
+                        "filename": st.session_state.pdf_filename
+                    }
+                }
+                
+            except Exception as e:
+                return {
+                    "success": False,
+                    "message": f"Error generating PDF: {str(e)}"
+                }
+        elif tool_name == "analyze_job_compatibility":
+            try:
+                if not self.job_compatibility_analyzer:
+                    return {
+                        "success": False,
+                        "message": "Job compatibility analyzer not initialized"
+                    }
+                
+                job_description = tool_args.get('job_description', '')
+                if not job_description:
+                    return {
+                        "success": False,
+                        "message": "Job description is required"
+                    }
+                
+                language = "tr" if any("tr" in str(msg).lower() for msg in st.session_state.get("messages", [])) else "en"
+                
+                # MODIFIED: Handle dictionary response from the analysis tool
+                report_data = self.job_compatibility_analyzer.generate_compatibility_report(
+                    job_description, language
+                )
+
+                if "error" in report_data:
+                    return {"success": False, "message": report_data["error"]}
+                
+                return {
+                    "success": True,
+                    "message": "Job compatibility analysis completed",
+                    "data": {
+                        "report": report_data["report_text"],
+                        "job_title": report_data["job_title"]
+                    }
+                }
+                
+            except Exception as e:
+                return {
+                    "success": False,
+                    "message": f"Error analyzing job compatibility: {str(e)}"
                 }
         
         else:

@@ -1,32 +1,33 @@
 {
-  "name": "Selman Dedeakayoğulları",
-  "title": "Jr. AI Engineer",
-  "location": "Eskişehir, Türkiye",
+  "name": "Selman Dedeakayoğulları Jr.",
+  "title": "AI Engineer",
+  "location": "Eskişehir/Türkiye",
   "email": "selmandedeakayogullari@gmail.com",
   "phone": "+90 542 538 95 48",
   "links": {
-    "linkedin": "https://www.linkedin.com/in/selman-dedeakayo%C4%9Fullar%C4%B1-443b431a7/",
-    "github": "https://github.com/SelmanDedeakay/",
-    "medium": "https://medium.com/@selmandedeakayogullari"
+    "linkedin": "Selman Dedeakayoğulları",
+    "github": "SelmanDedeakay",
+    "medium": "Selman Dedeakayoğulları",
+    "portfolio": "selmandedeakay.github.io"
   },
   "profile": "Known for combining technical expertise with a positive and engaging team spirit, I work in the field of artificial intelligence and software development, particularly focusing on large language models (LLMs) and computer vision. I enjoy generating original ideas and implementing them in the most practical and effective way. I believe that collaboration amplifies success, and I always strive to elevate both performance and team morale in every project I contribute to.",
   "education": [
     {
       "institution": "Eskişehir Technical University",
       "degree": "Bachelor of Engineering",
-      "years": "2021–2025",
+      "years": "2021 – 2025",
       "location": "Eskişehir, Turkey"
     },
     {
       "institution": "Vorarlberg University of Applied Sciences",
-      "program": "Erasmus+ Exchange Semester",
+      "program": "Exchange Semester - Erasmus+ Study Programme",
       "year": "2023",
       "location": "Dornbirn, Austria"
     },
     {
-      "institution": "University of Turkish Aeronautical Association",
+      "institution": "University Of Turkish Aeronautical Association",
       "degree": "Bachelor of Engineering",
-      "years": "2020–2021",
+      "years": "2020 – 2021",
       "location": "Ankara, Turkey",
       "memberships": [
         "IEEE UTAA Computer Society",
@@ -39,80 +40,120 @@
       "title": "AI Engineer Intern",
       "company": "Arena",
       "duration": "Dec 2023 – Mar 2025",
-      "description": "Developed and maintained chatbots using low-code AI platforms. Built LLM-based solutions using models like LLama, GPT-4o, and GPT-4 Vision."
+      "description": "Developing and maintaining existing/new chatbots using low-code AI platforms. Creating LLM based solutions via models like LLama and GPT-4o and GPT4-Vision"
     },
     {
       "title": "Software Engineering Intern",
       "company": "Turkish Aerospace Industries",
       "duration": "Nov 2022 – Jan 2023",
-      "description": "Contributed to backend development of various modules. Left early due to Erasmus+ program."
+      "description": "Contributing to backend solutions for different modules. Due to Erasmus+ programme, I had to leave earlier than SKY program ends."
     },
     {
       "title": "Computer Vision Intern",
       "company": "Visea Innovative",
       "duration": "Jul 2022 – Aug 2022",
-      "description": "Developed multiple classification and segmentation applications using PyTorch and TensorFlow."
+      "description": "At my first internship, I developed many classification and segmentation applications with deep learning by using PyTorch and Tensorflow."
     }
   ],
   "skills": {
-    "Computer Vision": ["OpenCV", "PyTorch", "Numpy", "Tensorflow", "YOLO", "Stable Diffusion Models", "Vision Language Models"],
-    "Natural Language Processing": ["HuggingFace Transformers", "Langchain", "LangGraph", "Ollama", "Smolagents", "Prompt Engineering"],
-    "Data Analysis & Visualization": ["Matplotlib", "Numpy", "Pandas", "Seaborn", "Scikit-learn", "SQL"],
-    "Software Engineering": ["Python", "Java", "Git", "Flask", "FastAPI", "MongoDB", "SQLite", "Low Code Development"]
+    "Computer Vision": [
+      "OpenCV",
+      "PyTorch", 
+      "Numpy",
+      "Tensorflow",
+      "Keras",
+      "CNNs",
+      "YOLO",
+      "Stable Diffusion Models",
+      "Vision Language Models"
+    ],
+    "Natural Language Processing": [
+      "HuggingFace Transformers",
+      "Langchain",
+      "LangGraph",
+      "Ollama",
+      "Smolagents",
+      "Prompt Engineering",
+      "Retrieval Augmented Generation",
+      "Few-shot Prompting",
+      "Gemini API",
+      "OpenAI API",
+      "RNNs"
+    ],
+    "Data Analysis & Visualization": [
+      "Matplotlib",
+      "Numpy",
+      "Pandas",
+      "Seaborn",
+      "Scikit-learn",
+      "SQL"
+    ],
+    "Software Engineering": [
+      "Python",
+      "Java",
+      "Git",
+      "Flask",
+      "FastAPI",
+      "MongoDB",
+      "SQLite",
+      "Low Code Development",
+      "Selenium",
+      "Streamlit",
+      "Gradio"
+    ]
   },
   "projects": [
     {
-      "name": "Social Media Analysis for Earthquake Victim Reports",
-      "technology": "Large Language Models",
-      "description": "TEKNOFEST Hackathon 2024 finalist project, currently evolving as a thesis study.",
-      "link": "https://github.com/Rhalith/2vall-hackathon-project"
+      "name": "Agentic Portfolio Chatbot",
+      "technology": "Agents & Gemini API",
+      "description": "Developed an AI-powered portfolio chatbot using Google Gemini and Streamlit, which is fully functional in my portfolio website live. The system answers questions about my background, projects, and skills, and allows direct contact via secure email. Integrated a recruiter tool that analyzes any job description and reports my compatibility percentage, highlighting matched skills and experience."
     },
     {
-      "name": "Gendiary: New-Gen Social Media",
+      "name": "Social Media Analysis for Earthquake Victim Reports",
+      "technology": "Large Language Models",
+      "description": "Developed a multimodal AI system combining LLM-based information extraction from social media with drone-based visual verification. Achieved high accuracy in identifying urgent needs, locations, and structural damage to support real-time disaster response."
+    },
+    {
+      "name": "Gendiary: New-Gen Social Media via Stable Diffusion",
       "technology": "Stable Diffusion",
-      "description": "Social media app generating content with Stable Diffusion. Software engineering course project.",
-      "link": "https://github.com/SelmanDedeakay/gendiary"
+      "description": "A Social Media Application using Stable Diffusion for Creating Content, for Software Engineering Course Project"
     },
     {
       "name": "Image Captioning Project",
       "technology": "Vision Language Models",
-      "description": "Fine-tuned VLMs and optimized pipelines for an AI competition."
+      "description": "Fine tuned several VLM's and optimized the pipelines for an AI competition."
     },
     {
       "name": "Face Recognition Application",
       "technology": "PyTorch",
-      "description": "MT-CNN based face recognition system. Also published an article on Medium.",
-      "link": "https://github.com/SelmanDedeakay/face-recognition-cnn"
+      "description": "MT-CNN based Face Recognition application. Also published an article about it on Medium account."
     },
     {
       "name": "Media Control with Gesture Recognition",
       "technology": "Scikit-learn",
-      "description": "Machine Learning course term project using MediaPipe and custom gesture algorithms.",
-      "link": "https://github.com/SelmanDedeakay/media-control-gesture-recognition"
+      "description": "Machine Learning Course Term Project using MediaPipe and custom algorithms to detect different gestures."
     },
     {
       "name": "City Sounds Classification",
       "technology": "TensorFlow",
-      "description": "Deep learning project using UrbanSound8K dataset for sound classification.",
-      "link": "https://github.com/SelmanDedeakay/global-ai-hub-koc-holding-bootcamp-project"
-    },
-    {
-    "name": "Agentic Portfolio Bot",
-    "technology": "Gemini API, Agentic AI, Streamlit",
-    "description": "Agent Based Portfolio Assistant who can handle contact requests and provide resume information by performing Retrieval Augmented Production.",
-    "link": null
-  }
+      "description": "Global AI Hub Deep Learning Bootcamp Project. Sound spectrograms from UrbanSound8K dataset used for classification."
+    }
   ],
   "awards": [
     {
       "name": "TEKNOFEST T3 AI Hackathon 2024 Finalist",
-      "organization": "Türkiye Technology Team",
-      "description": "Selected among 200+ teams to develop an LLM-based project in 48 hours."
+      "organization": "T3 (Türkiye Technology Team)",
+      "description": "Selected among 200+ teams to develop an LLM-based project within 48 hours at the T3 AI Hackathon."
     },
     {
       "name": "OBSS Code Master 2022",
       "organization": "OBSS",
-      "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition."
+      "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition"
+    },
+    {
+      "name": "EESTech AI Solutions Challenge",
+      "organization": "EESTEC LC Eskişehir",
+      "description": "Created sentimental analysis solution in an hackathon within 4 hours. Achieved 2nd Place"
     }
   ],
   "languages": {
@@ -124,35 +165,34 @@
     {
       "name": "IEEE Computer Society Turkey Chapter",
       "role": "Central Anatolia Coordinator",
-      "duration": "Sep 2021 – Sep 2022"
+      "duration": "Sep 2021 – Sep 2022",
+      "description": "As the coordinator, I was responsible for the IEEE CS chairpersons of the universities in the Central Anatolia region."
     }
   ],
   "references": [
-  {
-    "name": "Dr. Abdullatif Baba",
-    "title": "Assoc. Professor & Researcher",
-    "organization": "Kuwait College of Science and Technology"
-  },
-  {
-    "name": "Dr. Sebastian Hegenbart",
-    "title": "Senior Lecturer",
-    "organization": "Fachhochschule Vorarlberg"
-  },
-  {
-    "name": "Alperen Enes Bayar",
-    "title": "Senior AI Research Engineer",
-    "organization": "TURKSAT"
-  },
-  {
-    "name": "Dr. Sema Candemir",
-    "title": "Asst. Professor",
-    "organization": "Eskişehir Technical University"
-  },
-  {
-    "name": "Dr. Mehmet Koç",
-    "title": "Assoc. Professor",
-    "organization": "Eskişehir Technical University"
-  }
-]
-
+    {
+      "name": "Alperen Enes BAYAR",
+      "title": "AI Research Engineer",
+      "organization": "HAVELSAN",
+      "email": "enesalperenbayar@gmail.com"
+    },
+    {
+      "name": "Abdullatif BABA",
+      "title": "Associate Professor",
+      "organization": "Kuwait College of Science and Technology",
+      "email": "ababa@thk.edu.tr"
+    },
+    {
+      "name": "Mehmet KOÇ",
+      "title": "Associate Professor",
+      "organization": "Eskişehir Technical University",
+      "email": "mehmetkoc@eskisehir.edu.tr"
+    },
+    {
+      "name": "Sema CANDEMİR",
+      "title": "Associate Professor",
+      "organization": "Eskişehir Technical University",
+      "email": "semacandemir@eskisehir.edu.tr"
+    }
+  ]
 }
