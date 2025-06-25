@@ -1,0 +1,158 @@
+{
+  "name": "Selman Dedeakayoğulları",
+  "title": "Jr. AI Engineer",
+  "location": "Eskişehir, Türkiye",
+  "email": "selmandedeakayogullari@gmail.com",
+  "phone": "+90 542 538 95 48",
+  "links": {
+    "linkedin": "https://www.linkedin.com/in/selman-dedeakayo%C4%9Fullar%C4%B1-443b431a7/",
+    "github": "https://github.com/SelmanDedeakay/",
+    "medium": "https://medium.com/@selmandedeakayogullari"
+  },
+  "profile": "Known for combining technical expertise with a positive and engaging team spirit, I work in the field of artificial intelligence and software development, particularly focusing on large language models (LLMs) and computer vision. I enjoy generating original ideas and implementing them in the most practical and effective way. I believe that collaboration amplifies success, and I always strive to elevate both performance and team morale in every project I contribute to.",
+  "education": [
+    {
+      "institution": "Eskişehir Technical University",
+      "degree": "Bachelor of Engineering",
+      "years": "2021–2025",
+      "location": "Eskişehir, Turkey"
+    },
+    {
+      "institution": "Vorarlberg University of Applied Sciences",
+      "program": "Erasmus+ Exchange Semester",
+      "year": "2023",
+      "location": "Dornbirn, Austria"
+    },
+    {
+      "institution": "University of Turkish Aeronautical Association",
+      "degree": "Bachelor of Engineering",
+      "years": "2020–2021",
+      "location": "Ankara, Turkey",
+      "memberships": [
+        "IEEE UTAA Computer Society",
+        "UTAA Google Developer Students Club"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "title": "AI Engineer Intern",
+      "company": "Arena",
+      "duration": "Dec 2023 – Mar 2025",
+      "description": "Developed and maintained chatbots using low-code AI platforms. Built LLM-based solutions using models like LLama, GPT-4o, and GPT-4 Vision."
+    },
+    {
+      "title": "Software Engineering Intern",
+      "company": "Turkish Aerospace Industries",
+      "duration": "Nov 2022 – Jan 2023",
+      "description": "Contributed to backend development of various modules. Left early due to Erasmus+ program."
+    },
+    {
+      "title": "Computer Vision Intern",
+      "company": "Visea Innovative",
+      "duration": "Jul 2022 – Aug 2022",
+      "description": "Developed multiple classification and segmentation applications using PyTorch and TensorFlow."
+    }
+  ],
+  "skills": {
+    "Computer Vision": ["OpenCV", "PyTorch", "Numpy", "Tensorflow", "YOLO", "Stable Diffusion Models", "Vision Language Models"],
+    "Natural Language Processing": ["HuggingFace Transformers", "Langchain", "LangGraph", "Ollama", "Smolagents", "Prompt Engineering"],
+    "Data Analysis & Visualization": ["Matplotlib", "Numpy", "Pandas", "Seaborn", "Scikit-learn", "SQL"],
+    "Software Engineering": ["Python", "Java", "Git", "Flask", "FastAPI", "MongoDB", "SQLite", "Low Code Development"]
+  },
+  "projects": [
+    {
+      "name": "Social Media Analysis for Earthquake Victim Reports",
+      "technology": "Large Language Models",
+      "description": "TEKNOFEST Hackathon 2024 finalist project, currently evolving as a thesis study.",
+      "link": "https://github.com/Rhalith/2vall-hackathon-project"
+    },
+    {
+      "name": "Gendiary: New-Gen Social Media",
+      "technology": "Stable Diffusion",
+      "description": "Social media app generating content with Stable Diffusion. Software engineering course project.",
+      "link": "https://github.com/SelmanDedeakay/gendiary"
+    },
+    {
+      "name": "Image Captioning Project",
+      "technology": "Vision Language Models",
+      "description": "Fine-tuned VLMs and optimized pipelines for an AI competition."
+    },
+    {
+      "name": "Face Recognition Application",
+      "technology": "PyTorch",
+      "description": "MT-CNN based face recognition system. Also published an article on Medium.",
+      "link": "https://github.com/SelmanDedeakay/face-recognition-cnn"
+    },
+    {
+      "name": "Media Control with Gesture Recognition",
+      "technology": "Scikit-learn",
+      "description": "Machine Learning course term project using MediaPipe and custom gesture algorithms.",
+      "link": "https://github.com/SelmanDedeakay/media-control-gesture-recognition"
+    },
+    {
+      "name": "City Sounds Classification",
+      "technology": "TensorFlow",
+      "description": "Deep learning project using UrbanSound8K dataset for sound classification.",
+      "link": "https://github.com/SelmanDedeakay/global-ai-hub-koc-holding-bootcamp-project"
+    },
+    {
+    "name": "Agentic Portfolio Bot",
+    "technology": "Gemini API, Agentic AI, Streamlit",
+    "description": "Agent Based Portfolio Assistant who can handle contact requests and provide resume information by performing Retrieval Augmented Production.",
+    "link": null
+  }
+  ],
+  "awards": [
+    {
+      "name": "TEKNOFEST T3 AI Hackathon 2024 Finalist",
+      "organization": "Türkiye Technology Team",
+      "description": "Selected among 200+ teams to develop an LLM-based project in 48 hours."
+    },
+    {
+      "name": "OBSS Code Master 2022",
+      "organization": "OBSS",
+      "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition."
+    }
+  ],
+  "languages": {
+    "English": "B2",
+    "German": "A1",
+    "Turkish": "Native"
+  },
+  "organizations": [
+    {
+      "name": "IEEE Computer Society Turkey Chapter",
+      "role": "Central Anatolia Coordinator",
+      "duration": "Sep 2021 – Sep 2022"
+    }
+  ],
+  "references": [
+  {
+    "name": "Dr. Abdullatif Baba",
+    "title": "Assoc. Professor & Researcher",
+    "organization": "Kuwait College of Science and Technology"
+  },
+  {
+    "name": "Dr. Sebastian Hegenbart",
+    "title": "Senior Lecturer",
+    "organization": "Fachhochschule Vorarlberg"
+  },
+  {
+    "name": "Alperen Enes Bayar",
+    "title": "Senior AI Research Engineer",
+    "organization": "TURKSAT"
+  },
+  {
+    "name": "Dr. Sema Candemir",
+    "title": "Asst. Professor",
+    "organization": "Eskişehir Technical University"
+  },
+  {
+    "name": "Dr. Mehmet Koç",
+    "title": "Assoc. Professor",
+    "organization": "Eskişehir Technical University"
+  }
+]
+
+}

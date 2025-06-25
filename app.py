@@ -2,17 +2,19 @@ import streamlit as st
 import os
 import numpy as np
 from typing import List, Dict, Any
-import PyPDF2
 from google import genai
 from google.genai import types
 import re
 from dotenv import load_dotenv
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import json
 
+# Import ayrıştırılmış araçlar ve bileşenler
+from tools.email_tool import EmailTool
+from tools.tool_definitions import ToolDefinitions
+from ui.email_components import get_ui_text, render_email_verification_card, render_email_editor_card
+
 load_dotenv()
+
 
 def detect_language_from_messages(messages: List[Dict]) -> str:
     """Detect if user is speaking Turkish based on recent messages"""
@@ -30,88 +32,17 @@ def detect_language_from_messages(messages: List[Dict]) -> str:
     
     return "en"
 
-class EmailTool:
-    """SMTP email functionality"""
-    
-    def __init__(self):
-        self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.email_user = st.secrets.get("GMAIL_EMAIL", os.getenv("GMAIL_EMAIL"))
-        self.email_password = st.secrets.get("GMAIL_APP_PASSWORD", os.getenv("GMAIL_APP_PASSWORD"))
-        self.recipient_email = st.secrets.get("RECIPIENT_EMAIL", os.getenv("RECIPIENT_EMAIL"))
-        
-    def send_email(self, sender_name: str, sender_email: str, subject: str, message: str) -> Dict[str, Any]:
-        """Send email via SMTP"""
-        try:
-            # Debug info
-            print(f"SMTP Server: {self.smtp_server}")
-            print(f"SMTP Port: {self.smtp_port}")
-            print(f"Email User: {self.email_user}")
-            print(f"Recipient: {self.recipient_email}")
-            
-            # Create message
-            msg = MIMEMultipart()
-            msg['From'] = self.email_user  # Use authenticated email as sender
-            msg['To'] = self.recipient_email
-            msg['Subject'] = subject  # Already includes prefix
-            msg['Reply-To'] = sender_email  # Set reply-to as the user's email
-            
-            # Email body
-            body = f"""
-New contact from portfolio chatbot:
-
-From: {sender_name}
-Email: {sender_email}
-
-Message:
-{message}
-
----
-Sent via Portfolio RAG Chatbot
-            """
-            
-            msg.attach(MIMEText(body, 'plain'))
-            
-            # Send email
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-            server.set_debuglevel(1)  # Enable debug output
-            server.starttls()
-            server.login(self.email_user, self.email_password)
-            
-            # Send the message
-            text = msg.as_string()
-            server.sendmail(self.email_user, self.recipient_email, text)
-            server.quit()
-            
-            return {
-                "success": True,
-                "message": f"Email sent successfully to {self.recipient_email}! Selman will get back to you soon."
-            }
-            
-        except smtplib.SMTPAuthenticationError:
-            return {
-                "success": False,
-                "message": "Email authentication failed. Please check EMAIL_USER and EMAIL_PASSWORD (use App Password for Gmail)."
-            }
-        except smtplib.SMTPException as e:
-            return {
-                "success": False,
-                "message": f"SMTP error: {str(e)}"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"Failed to send email: {str(e)}"
-            }
 
 class GeminiEmbeddingRAG:
-    """Enhanced RAG with tool calling for email"""
+    """Enhanced RAG with tool calling for email using JSON data"""
     
-    def __init__(self, cv_path: str = "selman-cv.pdf"):
-        self.cv_path = cv_path
+    def __init__(self, json_path: str = "selman-cv.json"):
+        self.json_path = json_path
+        self.cv_data = {}
         self.cv_chunks = []
         self.cv_embeddings = None
         self.email_tool = EmailTool()
+        self.tool_definitions = ToolDefinitions()
         
         # Initialize Gemini client
         try:
@@ -150,62 +81,147 @@ class GeminiEmbeddingRAG:
             st.error(f"Embedding error: {e}")
             return np.array([])
     
+    def json_to_chunks(self, data: Dict) -> List[str]:
+        """Convert JSON data to searchable text chunks"""
+        chunks = []
+        
+        # Basic information chunk
+        basic_info = f"""Name: {data['name']}
+    Title: {data['title']}
+    Location: {data['location']}
+    Email: {data['email']}
+    Phone: {data['phone']}
+    Profile: {data['profile']}"""
+        chunks.append(basic_info)
+        
+        # Links chunk
+        links_text = "Links and Social Media:\n"
+        for platform, url in data['links'].items():
+            links_text += f"- {platform.capitalize()}: {url}\n"
+        chunks.append(links_text)
+        
+        # Education chunks - HER BİRİ İÇİN AYRI CHUNK
+        for edu in data['education']:
+            edu_text = f"Education: {edu['institution']}\n"
+            edu_text += f"Degree/Program: {edu.get('degree', edu.get('program', 'N/A'))}\n"
+            edu_text += f"Years: {edu.get('years', edu.get('year', 'N/A'))}\n"
+            edu_text += f"Location: {edu['location']}"
+            if 'memberships' in edu:
+                edu_text += f"\nMemberships: {', '.join(edu['memberships'])}"
+            chunks.append(edu_text)
+        
+        # Experience chunks - DAHA DETAYLI VE ANAHTAR KELİMELER EKLE
+        for exp in data['experience']:
+            exp_text = f"""Work Experience / İş Deneyimi:
+    Position/Pozisyon: {exp['title']}
+    Company/Şirket: {exp['company']}
+    Duration/Süre: {exp['duration']}
+    Job Description/İş Tanımı: {exp['description']}
+    Keywords: work experience, iş deneyimi, {exp['company'].lower()}, {exp['title'].lower()}"""
+            chunks.append(exp_text)
+        
+        # Tüm deneyimleri tek bir chunk'ta da topla
+        all_exp_text = "All Work Experience / Tüm İş Deneyimleri:\n"
+        for exp in data['experience']:
+            all_exp_text += f"- {exp['title']} at {exp['company']} ({exp['duration']})\n"
+        chunks.append(all_exp_text)
+        
+        # Skills chunk
+        skills_text = "Technical Skills:\n"
+        for category, skills in data['skills'].items():
+            skills_text += f"{category}: {', '.join(skills)}\n"
+        chunks.append(skills_text)
+        
+        # Projects chunks - DAHA DETAYLI VE ANAHTAR KELİMELER EKLE
+        for project in data['projects']:
+            proj_text = f"""Project / Proje:
+    Project Name/Proje Adı: {project['name']}
+    Technology Used/Kullanılan Teknoloji: {project['technology']}
+    Project Description/Proje Açıklaması: {project['description']}
+    Keywords: project, proje, {project['technology'].lower()}, {project['name'].lower()}"""
+            if 'link' in project:
+                proj_text += f"\nProject Link/Proje Linki: {project['link']}"
+            chunks.append(proj_text)
+        
+        # Tüm projeleri tek bir chunk'ta da topla
+        all_proj_text = "All Projects / Tüm Projeler:\n"
+        for project in data['projects']:
+            all_proj_text += f"- {project['name']} ({project['technology']})\n"
+        chunks.append(all_proj_text)
+        
+        # Awards chunks
+        for award in data['awards']:
+            award_text = f"Award: {award['name']}\n"
+            award_text += f"Organization: {award['organization']}\n"
+            award_text += f"Description: {award['description']}"
+            chunks.append(award_text)
+        
+        # Languages chunk
+        lang_text = "Languages:\n"
+        for lang, level in data['languages'].items():
+            lang_text += f"- {lang}: {level}\n"
+        chunks.append(lang_text)
+        
+        # Organizations chunk
+        for org in data['organizations']:
+            org_text = f"Organization: {org['name']}\n"
+            org_text += f"Role: {org['role']}\n"
+            org_text += f"Duration: {org['duration']}"
+            chunks.append(org_text)
+        
+        # References chunks
+        ref_text = "References:\n"
+        for ref in data['references']:
+            ref_text += f"- {ref['name']} ({ref['title']} at {ref['organization']})"
+        chunks.append(ref_text)
+        
+        return chunks
+        
     def load_cv(self):
-        """Load CV and create embeddings"""
+        """Load CV from JSON and create embeddings"""
         try:
-            if os.path.exists(self.cv_path):
-                with open(self.cv_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    text = ""
-                    for page in pdf_reader.pages:
-                        text += page.extract_text() + "\n"
+            if os.path.exists(self.json_path):
+                with open(self.json_path, 'r', encoding='utf-8') as file:
+                    self.cv_data = json.load(file)
                 
-                if text.strip():
-                    self.cv_chunks = self._chunk_text(text)
+                if self.cv_data:
+                    self.cv_chunks = self.json_to_chunks(self.cv_data)
                     
                     with st.spinner(f"Generating embeddings for {len(self.cv_chunks)} chunks..."):
                         self.cv_embeddings = self.get_embeddings(self.cv_chunks)
                     
                     if self.cv_embeddings.size > 0:
-                        st.success(f"✅ Loaded Selman's recent CV ({len(self.cv_chunks)} chunks)")
+                        st.success(f"✅ Loaded Selman's CV data ({len(self.cv_chunks)} chunks)")
                     else:
                         st.error("❌ Failed to generate embeddings")
                 else:
-                    st.error("❌ PDF file is empty or unreadable")
+                    st.error("❌ JSON file is empty or unreadable")
             else:
-                st.error(f"❌ CV file '{self.cv_path}' not found.")
+                st.error(f"❌ CV file '{self.json_path}' not found.")
                 
         except Exception as e:
             st.error(f"Error loading CV: {e}")
     
-    def _chunk_text(self, text: str, chunk_size: int = 350) -> List[str]:
-        """Split text into chunks"""
-        text = re.sub(r'\s+', ' ', text).strip()
-        chunks = []
-        
-        start = 0
-        while start < len(text):
-            end = start + chunk_size
-            
-            if end < len(text):
-                for delimiter in ['\n\n', '\n', '. ', '! ', '? ']:
-                    last_delimiter = text.rfind(delimiter, start, end)
-                    if last_delimiter != -1:
-                        end = last_delimiter + len(delimiter)
-                        break
-            
-            chunk = text[start:end].strip()
-            if chunk:
-                chunks.append(chunk)
-            start = end
-        
-        return chunks
-    
-    def search_similar_chunks(self, query: str, top_k: int = 4) -> List[Dict]:
-        """Search for similar chunks using Gemini embeddings"""
+    def search_similar_chunks(self, query: str, top_k: int = 6) -> List[Dict]:
+        """Enhanced search with keyword matching"""
         if not self.configured or self.cv_embeddings is None or self.cv_embeddings.size == 0:
             return [{"text": "Embeddings not available", "similarity": 0}]
         
+        # Sorguyu normalize et
+        query_lower = query.lower()
+        
+        # Anahtar kelime eşleştirmesi için özel ağırlıklar
+        keyword_boosts = {
+            'proje': ['project', 'proje'],
+            'projects': ['project', 'proje'],
+            'deneyim': ['experience', 'deneyim', 'work', 'iş'],
+            'experience': ['experience', 'deneyim', 'work', 'iş'],
+            'work': ['experience', 'deneyim', 'work', 'iş'],
+            'iş': ['experience', 'deneyim', 'work', 'iş'],
+            'çalış': ['experience', 'deneyim', 'work', 'iş'],
+        }
+        
+        # Embedding hesapla
         query_embedding = self.get_embeddings([query])
         if query_embedding.size == 0:
             return [{"text": "Could not process query", "similarity": 0}]
@@ -221,61 +237,24 @@ class GeminiEmbeddingRAG:
             else:
                 similarity = 0
             
+            # Keyword boost - anahtar kelime varsa skoru artır
+            chunk_lower = self.cv_chunks[i].lower()
+            boost = 0
+            for key, keywords in keyword_boosts.items():
+                if key in query_lower:
+                    for keyword in keywords:
+                        if keyword in chunk_lower:
+                            boost += 0.2  # %20 boost
+                            break
+            
             similarities.append({
                 "text": self.cv_chunks[i],
-                "similarity": float(similarity),
+                "similarity": float(similarity + boost),
                 "index": i
             })
         
         similarities.sort(key=lambda x: x["similarity"], reverse=True)
         return similarities[:top_k]
-    
-    def _get_tool_definitions(self) -> List[Any]:
-        """Define available tools for function calling"""
-        from google.genai.types import Tool, FunctionDeclaration
-        
-        prepare_email_func = FunctionDeclaration(
-            name="prepare_email",
-            description="Prepare an email to Selman when someone wants to contact him. This function prepares the email for review before sending.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "sender_name": {
-                        "type": "string",
-                        "description": "Name of the person sending the email"
-                    },
-                    "sender_email": {
-                        "type": "string",
-                        "description": "Email address of the sender"
-                    },
-                    "message": {
-                        "type": "string",
-                        "description": "The message content to send to Selman"
-                    }
-                },
-                "required": ["sender_name", "sender_email", "message"]
-            }
-        )
-        
-        return [Tool(function_declarations=[prepare_email_func])]
-    
-    def _execute_tool(self, tool_name: str, tool_args: Dict) -> Dict[str, Any]:
-        """Execute the requested tool"""
-        if tool_name == "prepare_email":
-            # Add default subject
-            tool_args['subject'] = "New Message from Portfolio Bot"
-            # Store email data for verification
-            st.session_state.pending_email = tool_args
-            return {
-                "success": True,
-                "message": "Email prepared for review",
-                "data": tool_args
-            }
-        else:
-            return {
-                "success": False,
-                "message": f"Unknown tool: {tool_name}"
-            }
     
     def generate_response(self, query: str, conversation_history: List[Dict] = None) -> str:
         """Generate response with tool calling capability and Turkish support"""
@@ -287,46 +266,58 @@ class GeminiEmbeddingRAG:
         if conversation_history and len(conversation_history) > 1:
             recent_context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[-4:]])
         
+        # Sorgu tipini belirle
+        query_lower = query.lower()
+        is_project_query = any(word in query_lower for word in ['proje', 'project', 'yaptığı', 'geliştirdiği'])
+        is_experience_query = any(word in query_lower for word in ['deneyim', 'experience', 'çalış', 'work', 'iş'])
+        
+        # Eğer proje veya deneyim sorgusu ise, daha fazla chunk al
+        top_k = 6 if (is_project_query or is_experience_query) else 4
+        
         # Regular RAG response
-        relevant_chunks = self.search_similar_chunks(query)
+        relevant_chunks = self.search_similar_chunks(query, top_k=top_k)
         context = "\n\n".join([chunk["text"] for chunk in relevant_chunks])
         
         # Enhanced prompt with Turkish support and smart email handling
-        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You can respond in both English and Turkish based on the user's language preference.
+        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You can respond in either English or Turkish based on the user's language preference.
 
-Rules:
-- His name IS NOT Selman Dedeakayoğulları Jr. It is Selman Dedeakayoğulları.
-- Respond in the same language as the user's query
-- Only use information from the provided context for CV questions
-- Be professional and helpful
-- Use markdown formatting for clarity
+    Rules:
+    - Respond in the same language as the user's query
+    - Only use information from the provided context for CV questions
+    - Be professional and helpful
+    - Use markdown formatting for clarity
+    - When asked about projects or work experience, list ALL relevant items from the context
+    - For project questions, include project names, technologies used, and descriptions
+    - For experience questions, include company names, positions, durations, and descriptions
 
-TOOL USAGE:
-- Use prepare_email tool when someone wants to contact Selman and you have ALL required information
-- Only ask for: sender name, sender email, and message content
-- DO NOT ask for email subject - it will be automatically set
-- Extract information naturally from conversation context
-- If someone wants to contact Selman but you don't have complete info, ask for missing details conversationally
-- Don't repeat requests for information already provided in the conversation
+    TOOL USAGE:
+    - Use prepare_email tool when someone wants to contact Selman and you have ALL required information
+    - Only ask for: sender name, sender email, and message content
+    - DO NOT ask for email subject - it will be automatically set
+    - Extract information naturally from conversation context
+    - If someone wants to contact Selman but you don't have complete info, ask for missing details conversationally
+    - Don't repeat requests for information already provided in the conversation
 
-Recent Conversation Context:
-{recent_context}
+    Recent Conversation Context:
+    {recent_context}
 
-CV Context:
-{context}
+    CV Context:
+    {context}
 
-User Question: {query}
+    User Question: {query}
 
-Response:"""
+    Response:"""
+    
+    # Rest of the method remains the same...
         
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
+                model="gemini-2.5-flash-lite-preview-06-17",
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.5,
-                    max_output_tokens=400,
-                    tools=self._get_tool_definitions()
+                    temperature=0.3,
+                    max_output_tokens=600,
+                    tools=self.tool_definitions.get_all_tools()
                 )
             )
             
@@ -334,14 +325,13 @@ Response:"""
             if response.candidates and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, 'function_call') and part.function_call:
-                        # Execute the prepare_email tool
+                        # Execute tool using tool_definitions
                         tool_name = part.function_call.name
                         tool_args = {k: v for k, v in part.function_call.args.items()}
                         
-                        result = self._execute_tool(tool_name, tool_args)
+                        result = self.tool_definitions.execute_tool(tool_name, tool_args)
                         
                         if result["success"] and tool_name == "prepare_email":
-                            # Return a message indicating email is ready for review
                             return "EMAIL_PREPARED_FOR_REVIEW"
             
             return response.text if response.text else "No response generated"
@@ -349,121 +339,8 @@ Response:"""
         except Exception as e:
             return f"Error generating response: {e}"
 
-def get_ui_text(language: str) -> Dict[str, str]:
-    """Get UI text based on language"""
-    if language == "tr":
-        return {
-            "email_review_title": "📧 **Lütfen e-postanızı göndermeden önce kontrol edin:**",
-            "from_label": "**Gönderen:**",
-            "email_label": "**E-posta:**",
-            "message_label": "**Mesaj:**",
-            "send_button": "✅ E-postayı Gönder",
-            "cancel_button": "❌ İptal Et",
-            "edit_button": "✏️ Mesajı Düzenle",
-            "edit_title": "✏️ **E-postanızı düzenleyin:**",
-            "name_field": "Adınız",
-            "email_field": "E-posta Adresiniz",
-            "message_field": "Mesaj",
-            "save_button": "💾 Değişiklikleri Kaydet",
-            "cancel_edit_button": "❌ Düzenlemeyi İptal Et",
-            "email_sent": "✅ E-posta başarıyla gönderildi! Selman size yakında dönüş yapacak.",
-            "email_failed": "❌ E-posta gönderilemedi: ",
-            "email_cancelled": "E-posta iptal edildi. Başka bir konuda yardımcı olabileceğim bir şey var mı?",
-            "email_prepared": "E-postanız Selman'a hazırlandı. Lütfen göndermeden önce aşağıdaki detayları kontrol edin."
-        }
-    else:  # English
-        return {
-            "email_review_title": "📧 **Please review your email before sending:**",
-            "from_label": "**From:**",
-            "email_label": "**Email:**",
-            "message_label": "**Message:**",
-            "send_button": "✅ Send Email",
-            "cancel_button": "❌ Cancel",
-            "edit_button": "✏️ Edit Message",
-            "edit_title": "✏️ **Edit your email:**",
-            "name_field": "Your Name",
-            "email_field": "Your Email",
-            "message_field": "Message",
-            "save_button": "💾 Save Changes",
-            "cancel_edit_button": "❌ Cancel Editing",
-            "email_sent": "✅ Email sent successfully! Selman will get back to you soon.",
-            "email_failed": "❌ Failed to send email: ",
-            "email_cancelled": "Email cancelled. Is there anything else I can help you with?",
-            "email_prepared": "I've prepared your email to Selman. Please review the details below before sending."
-        }
 
-def render_email_verification_card(email_data: Dict[str, str], language: str):
-    """Render email verification card within the chat message"""
-    ui_text = get_ui_text(language)
-    
-    with st.container():
-        st.info(ui_text["email_review_title"])
-        
-        # Display email details in a nice format
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
-            st.markdown(ui_text["from_label"])
-            st.markdown(ui_text["email_label"])
-            st.markdown(ui_text["message_label"])
-        
-        with col2:
-            st.markdown(f"{email_data['sender_name']}")
-            st.markdown(f"{email_data['sender_email']}")
-            st.markdown(f"{email_data['message']}")
-        
-        # Action buttons
-        col1, col2, col3 = st.columns([1, 1, 2])
-        
-        with col1:
-            if st.button(ui_text["send_button"], type="primary", key="send_email_btn"):
-                st.session_state.email_action = "send"
-                st.rerun()
-        
-        with col2:
-            if st.button(ui_text["cancel_button"], key="cancel_email_btn"):
-                st.session_state.email_action = "cancel"
-                st.rerun()
-        
-        with col3:
-            if st.button(ui_text["edit_button"], key="edit_email_btn"):
-                st.session_state.email_action = "edit"
-                st.rerun()
-
-def render_email_editor_card(email_data: Dict[str, str], language: str):
-    """Render email editor card within the chat message"""
-    ui_text = get_ui_text(language)
-    
-    with st.container():
-        st.info(ui_text["edit_title"])
-        
-        # Editable fields
-        with st.form("email_editor", clear_on_submit=False):
-            sender_name = st.text_input(ui_text["name_field"], value=email_data['sender_name'])
-            sender_email = st.text_input(ui_text["email_field"], value=email_data['sender_email'])
-            message = st.text_area(ui_text["message_field"], value=email_data['message'], height=150)
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.form_submit_button(ui_text["save_button"], type="primary"):
-                    # Update email data
-                    st.session_state.pending_email = {
-                        'sender_name': sender_name,
-                        'sender_email': sender_email,
-                        'subject': 'New Message from Portfolio Bot',
-                        'message': message
-                    }
-                    st.session_state.editing_email = False
-                    st.session_state.email_action = None
-                    st.rerun()
-            
-            with col2:
-                if st.form_submit_button(ui_text["cancel_edit_button"]):
-                    st.session_state.editing_email = False
-                    st.session_state.email_action = None
-                    st.rerun()
-
+# Streamlit App
 # Streamlit App
 def main():
     st.set_page_config(
@@ -594,14 +471,16 @@ def main():
         st.markdown("### 🔍 So you are a curious one :)")
         st.markdown("- **Embeddings**: text-embedding-004")
         st.markdown("- **Generation**: gemini-2.0-flash-exp")
-        st.markdown("- **Vector dims**: 3072")
+        st.markdown("- **Vector dims**: 768")
         st.markdown("- **Search**: Cosine similarity")
         st.markdown("- **Tools**: Email with verification 📧")
+        st.markdown("- **Data Source**: JSON")
         
         if rag_system.configured and rag_system.cv_chunks:
             st.markdown(f"- **Chunks loaded**: {len(rag_system.cv_chunks)}")
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
-        
+            
+
 
 if __name__ == "__main__":
     main()
