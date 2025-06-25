@@ -1,6 +1,7 @@
 import streamlit as st
 from typing import Dict
-
+import random
+import string
 
 def get_ui_text(language: str) -> Dict[str, str]:
     """Get UI text based on language"""
@@ -22,7 +23,11 @@ def get_ui_text(language: str) -> Dict[str, str]:
             "email_sent": "✅ E-posta başarıyla gönderildi! Selman size yakında dönüş yapacak.",
             "email_failed": "❌ E-posta gönderilemedi: ",
             "email_cancelled": "E-posta iptal edildi. Başka bir konuda yardımcı olabileceğim bir şey var mı?",
-            "email_prepared": "E-postanız Selman'a hazırlandı. Lütfen göndermeden önce aşağıdaki detayları kontrol edin."
+            "email_prepared": "E-postanız Selman'a hazırlandı. Lütfen göndermeden önce aşağıdaki detayları kontrol edin.",
+            "captcha_label": "**CAPTCHA Doğrulama:**",
+            "captcha_instructions": "Lütfen aşağıda gösterilen karakterleri girin (Kimse botların posta kutusunu işgal etmesini istemez, değil mi?):",
+            "captcha_error": "❌ CAPTCHA doğrulaması başarısız. Lütfen tekrar deneyin.",
+            "captcha_placeholder": "CAPTCHA'yı buraya girin",
         }
     else:  # English
         return {
@@ -42,9 +47,17 @@ def get_ui_text(language: str) -> Dict[str, str]:
             "email_sent": "✅ Email sent successfully! Selman will get back to you soon.",
             "email_failed": "❌ Failed to send email: ",
             "email_cancelled": "Email cancelled. Is there anything else I can help you with?",
-            "email_prepared": "I've prepared your email to Selman. Please review the details below before sending."
+            "email_prepared": "I've prepared your email to Selman. Please review the details below before sending.",
+            "captcha_label": "**CAPTCHA Verification:**",
+            "captcha_instructions": "Please enter the characters shown below (No one wants bots spamming his mailbox, right?):",
+            "captcha_error": "❌ CAPTCHA verification failed. Please try again.",
+            "captcha_placeholder": "Enter CAPTCHA here",
         }
 
+def generate_captcha(length=6):
+    """Generate a simple CAPTCHA string"""
+    characters = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(characters) for _ in range(length))
 
 def render_email_verification_card(email_data: Dict[str, str], language: str):
     """Render email verification card within the chat message"""
@@ -66,13 +79,49 @@ def render_email_verification_card(email_data: Dict[str, str], language: str):
             st.markdown(f"{email_data['sender_email']}")
             st.markdown(f"{email_data['message']}")
         
+        # Generate and store CAPTCHA if not already present
+        if 'email_captcha' not in st.session_state:
+            st.session_state.email_captcha = generate_captcha()
+        
+        # Display CAPTCHA verification
+        st.markdown("---")
+        st.markdown(ui_text["captcha_label"])
+        st.markdown(ui_text["captcha_instructions"])
+        
+        # Display CAPTCHA in a styled box
+        st.markdown(
+            f"""
+            <div style="
+                background: #f0f2f6;
+                padding: 10px;
+                border-radius: 5px;
+                text-align: center;
+                font-family: monospace;
+                font-size: 24px;
+                letter-spacing: 5px;
+                margin: 10px 0;
+                user-select: none;
+            ">{st.session_state.email_captcha}</div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        captcha_input = st.text_input(
+            ui_text["captcha_placeholder"],
+            key="email_captcha_input",
+            label_visibility="collapsed"
+        )
+        
         # Action buttons
         col1, col2, col3 = st.columns([1, 1, 2])
         
         with col1:
             if st.button(ui_text["send_button"], type="primary", key="send_email_btn"):
-                st.session_state.email_action = "send"
-                st.rerun()
+                if captcha_input.upper() == st.session_state.email_captcha:
+                    st.session_state.email_action = "send"
+                    st.rerun()
+                else:
+                    st.error(ui_text["captcha_error"])
         
         with col2:
             if st.button(ui_text["cancel_button"], key="cancel_email_btn"):

@@ -58,6 +58,10 @@ Sent via Portfolio RAG Chatbot
             server.sendmail(self.email_user, self.recipient_email, text)
             server.quit()
             
+            # Clear CAPTCHA after successful send
+            if 'email_captcha' in st.session_state:
+                del st.session_state.email_captcha
+            
             return {
                 "success": True,
                 "message": f"Email sent successfully to {self.recipient_email}! Selman will get back to you soon."

@@ -297,10 +297,10 @@ Rules:
 TOOL USAGE:
 - Use prepare_email tool when someone wants to contact Selman and you have ALL required information
 - Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content, LinkedIn activity, or social media
-- Only ask for email details: sender name, sender email, and message content
+- Only ask for email details: sender name and surname, sender email, and message content. Do not skip any of these.
 - DO NOT ask for email subject - it will be automatically set
 - Extract information naturally from conversation context
-- If someone wants to contact Selman but you don't have complete info, ask for missing details conversationally
+- If someone wants to contact Selman but you don't have complete info, ALWAYS ask for missing details conversationally
 
 Recent Conversation Context:
 {recent_context}
