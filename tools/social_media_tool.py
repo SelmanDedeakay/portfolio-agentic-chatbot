@@ -9,11 +9,10 @@ import time
 
 
 class SocialMediaAggregator:
-    """Aggregate posts from LinkedIn and Medium"""
+    """Aggregate posts from Medium only"""
     
     def __init__(self):
         self.medium_username = "selmandedeakayogullari"  # From CV data
-        self.linkedin_profile = "selman-dedeako%C4%9Fullar%C4%B1-443b431a7"  # From CV data
         self.cache_duration = 3600  # 1 hour cache
         
     def get_medium_posts(self, limit: int = 5) -> List[Dict[str, Any]]:
@@ -63,60 +62,18 @@ class SocialMediaAggregator:
             st.error(f"Error fetching Medium posts: {e}")
             return []
     
-    def get_linkedin_posts_fallback(self) -> List[Dict[str, Any]]:
-        """Fallback method for LinkedIn (manual/scraped data since API requires auth)"""
-        # Since LinkedIn API requires OAuth, we'll return mock data or manual entries
-        # In production, you'd need LinkedIn API access or web scraping
-        
-        cache_key = "linkedin_posts_fallback"
-        if self._is_cache_valid(cache_key):
-            return st.session_state.get(cache_key, [])
-        
-        # Mock LinkedIn posts (replace with actual scraping or API calls)
-        posts = [
-            {
-                'platform': 'LinkedIn',
-                'title': 'Recent AI Engineering Work',
-                'description': 'Sharing insights from my latest AI engineering projects and LLM implementations...',
-                'url': f"https://www.linkedin.com/in/{self.linkedin_profile}/",
-                'published': '2 days ago',
-                'published_date': datetime.now() - timedelta(days=2)
-            },
-            {
-                'platform': 'LinkedIn',
-                'title': 'TEKNOFEST Experience',
-                'description': 'Reflecting on our finalist experience at TEKNOFEST AI Hackathon 2024...',
-                'url': f"https://www.linkedin.com/in/{self.linkedin_profile}/",
-                'published': '1 week ago',
-                'published_date': datetime.now() - timedelta(weeks=1)
-            }
-        ]
-        
-        # Cache results
-        st.session_state[cache_key] = posts
-        st.session_state[f"{cache_key}_timestamp"] = time.time()
-        
-        return posts
-    
     def get_all_posts(self, limit_per_platform: int = 3) -> List[Dict[str, Any]]:
-        """Get combined posts from all platforms"""
-        all_posts = []
-        
+        """Get Medium posts only"""
         # Get Medium posts
         medium_posts = self.get_medium_posts(limit_per_platform)
-        all_posts.extend(medium_posts)
-        
-        # Get LinkedIn posts (fallback method)
-        linkedin_posts = self.get_linkedin_posts_fallback()
-        all_posts.extend(linkedin_posts[:limit_per_platform])
         
         # Sort by date (most recent first)
-        all_posts.sort(
+        medium_posts.sort(
             key=lambda x: x.get('published_date', datetime.min), 
             reverse=True
         )
         
-        return all_posts
+        return medium_posts
     
     def _is_cache_valid(self, cache_key: str) -> bool:
         """Check if cached data is still valid"""
@@ -160,7 +117,7 @@ class SocialMediaAggregator:
         
         formatted = title
         for post in posts:
-            platform_emoji = "📝" if post['platform'] == 'Medium' else "💼"
+            platform_emoji = "📝"
             formatted += f"{platform_emoji} **{post['platform']}** - {post['published']}\n"
             formatted += f"**{post['title']}**\n"
             formatted += f"{post['description']}\n"

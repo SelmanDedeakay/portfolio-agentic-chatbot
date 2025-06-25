@@ -45,15 +45,10 @@ class ToolDefinitions:
         """Get social media aggregator tool definition"""
         get_posts_func = FunctionDeclaration(
             name="get_recent_posts",
-            description="Get Selman's recent posts from LinkedIn and Medium. Use this when someone asks about his latest posts, articles, or social media activity.",
+            description="Get Selman's recent posts from Medium. Use this when someone asks about his latest posts, articles, or social media activity.",
             parameters={
                 "type": "object",
                 "properties": {
-                    "platform": {
-                        "type": "string",
-                        "description": "Specific platform to get posts from (optional). Options: 'medium', 'linkedin', 'all'",
-                        "enum": ["medium", "linkedin", "all"]
-                    },
                     "limit": {
                         "type": "integer",
                         "description": "Number of posts to retrieve (default: 5)",
@@ -92,17 +87,11 @@ class ToolDefinitions:
         
         elif tool_name == "get_recent_posts":
             try:
-                platform = tool_args.get('platform', 'all')
                 limit = tool_args.get('limit', 5)
                 search_query = tool_args.get('search_query', '')
                 
-                # Get posts based on platform
-                if platform == 'medium':
-                    posts = self.social_media_aggregator.get_medium_posts(limit)
-                elif platform == 'linkedin':
-                    posts = self.social_media_aggregator.get_linkedin_posts_fallback()[:limit]
-                else:  # all
-                    posts = self.social_media_aggregator.get_all_posts(limit_per_platform=limit//2 + 1)
+                # Get Medium posts only
+                posts = self.social_media_aggregator.get_medium_posts(limit)
                 
                 # Filter by search query if provided
                 if search_query and posts:
