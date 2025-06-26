@@ -192,8 +192,7 @@ def render_email_editor_card(email_data: Dict[str, str], language: str):
             sender_name = st.text_input(ui_text["name_field"], value=email_data['sender_name'])
             sender_email = st.text_input(ui_text["email_field"], value=email_data['sender_email'])
             message = st.text_area(ui_text["message_field"], value=email_data['message'], height=150)
-            
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns([1, 1])
             
             with col1:
                 if st.form_submit_button(ui_text["save_button"], type="primary"):
