@@ -898,38 +898,123 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
 import base64
 
 def render_pdf_download() -> None:
+    """Mobile-friendly PDF download with fallback options"""
     if "pdf_data" not in st.session_state or "pdf_filename" not in st.session_state:
         return
+
+    # Language detection for UI text
+    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
     
-    pdf_bytes   = st.session_state.pdf_data
-    file_name   = st.session_state.pdf_filename
-    language    = LanguageDetector.detect_from_messages(
-                      st.session_state.get("messages", []))
+    # Prepare data
+    pdf_bytes = st.session_state.pdf_data
+    file_name = st.session_state.pdf_filename
+    
+    # UI text based on language
+    if language == Language.TURKISH:
+        download_text = "📄 PDF Raporu İndir"
+        clear_text = "🗑️ Temizle"
+        mobile_note = "💡 Mobil cihazlarda indirme çalışmıyorsa, dosyayı açıp 'Farklı Kaydet' seçeneğini kullanın"
+    else:
+        download_text = "📄 Download PDF Report" 
+        clear_text = "🗑️ Clear"
+        mobile_note = "💡 If download doesn't work on mobile, open the file and use 'Save As' option"
 
-    download_text = "📄 PDF Raporu İndir" if language == Language.TURKISH \
-                    else "📄 Download PDF Report"
-    clear_text    = "🗑️ Temizle"          if language == Language.TURKISH \
-                    else "🗑️ Clear"
+    # Custom CSS for responsive design
+    st.markdown("""
+        <style>
+        .pdf-download-container {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .pdf-button-row {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .mobile-note {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            font-style: italic;
+            margin-top: 10px;
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .pdf-button-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .mobile-note {
+                font-size: 11px;
+                line-height: 1.4;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
+    # Container for better styling
+    st.markdown('<div class="pdf-download-container">', unsafe_allow_html=True)
+    
+    # Use Streamlit's built-in download button (more reliable on mobile)
     col1, col2 = st.columns(2)
-
-    # 1) **İNDİRME** – Streamlit’in kendi komponenti
+    
     with col1:
         st.download_button(
-            label       = download_text,
-            data        = pdf_bytes,
-            file_name   = file_name,
-            mime        = "application/pdf",
-            key         = "pdf_dl_btn"
+            label=download_text,
+            data=pdf_bytes,
+            file_name=file_name,
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+            help="Click to download the PDF report" if language == Language.ENGLISH else "PDF raporu indirmek için tıklayın"
         )
-
-    # 2) **TEMİZLE**
+    
     with col2:
-        if st.button(clear_text, key="clear_download", use_container_width=True):
+        if st.button(
+            clear_text, 
+            key="clear_download", 
+            use_container_width=True,
+            type="secondary",
+            help="Clear the download" if language == Language.ENGLISH else "İndirmeyi temizle"
+        ):
             st.session_state.pop("pdf_data", None)
             st.session_state.pop("pdf_filename", None)
             st.rerun()
-
+    
+    # Mobile help note
+    st.markdown(f'<div class="mobile-note">{mobile_note}</div>', unsafe_allow_html=True)
+    
+    # Alternative: Show PDF in browser for mobile users
+    if st.button(
+        "🔍 Tarayıcıda Görüntüle / View in Browser", 
+        use_container_width=True,
+        type="secondary",
+        help="Open PDF in browser for mobile viewing" if language == Language.ENGLISH else "Mobil görüntüleme için PDF'i tarayıcıda aç"
+    ):
+        # Create a data URL for viewing
+        pdf_b64 = base64.b64encode(pdf_bytes).decode()
+        pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_b64}" width="100%" height="600px" type="application/pdf"></iframe>'
+        
+        # Show in expander for better UX
+        with st.expander("📱 PDF Görüntüleyici / PDF Viewer", expanded=True):
+            st.markdown(pdf_display, unsafe_allow_html=True)
+            st.info(
+                "Mobil cihazlarda: Dosyayı görüntüledikten sonra paylaş butonunu kullanarak indirebilirsiniz." 
+                if language == Language.TURKISH 
+                else "On mobile: After viewing the file, you can use the share button to download it."
+            )
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def initialize_session_state() -> None:
     """Initialize session state variables"""
