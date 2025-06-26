@@ -895,80 +895,81 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
-import base64
-
 def render_pdf_download() -> None:
-    """Mobile-friendly PDF download with fallback options"""
+    """Simple and reliable PDF download without custom JavaScript"""
     if "pdf_data" not in st.session_state or "pdf_filename" not in st.session_state:
         return
-
-    # Language detection for UI text
-    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
     
-    # Prepare data
+    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
     pdf_bytes = st.session_state.pdf_data
     file_name = st.session_state.pdf_filename
     
-    # UI text based on language
+    # UI text
     if language == Language.TURKISH:
-        download_text = "📄 PDF Raporu İndir"
+        title = "📄 PDF Raporu Hazır!"
+        download_text = "💻 PDF İndir"
+        email_text = "📧 Email Gönder"
         clear_text = "🗑️ Temizle"
-        mobile_note = "💡 Mobil cihazlarda indirme çalışmıyorsa, dosyayı açıp 'Farklı Kaydet' seçeneğini kullanın"
+        mobile_tip = "📱 Mobil cihazda mısınız? Email seçeneğini deneyin!"
     else:
-        download_text = "📄 Download PDF Report" 
+        title = "📄 PDF Report Ready!"
+        download_text = "💻 Download PDF"
+        email_text = "📧 Email PDF"
         clear_text = "🗑️ Clear"
-        mobile_note = "💡 If download doesn't work on mobile, open the file and use 'Save As' option"
+        mobile_tip = "📱 On mobile? Try the email option!"
 
-    # Custom CSS for responsive design
+    # Clean CSS without JavaScript
     st.markdown("""
         <style>
         .pdf-download-container {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            padding: 20px;
-            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
             margin: 20px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
         }
         
-        .pdf-button-row {
+        .mobile-tip {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .download-buttons {
             display: flex;
             gap: 15px;
             justify-content: center;
-            align-items: center;
-            margin-bottom: 15px;
+            margin-top: 20px;
             flex-wrap: wrap;
         }
         
-        .mobile-note {
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-            font-style: italic;
-            margin-top: 10px;
-        }
-        
-        /* Mobile responsive */
         @media (max-width: 768px) {
-            .pdf-button-row {
+            .download-buttons {
                 flex-direction: column;
                 gap: 10px;
-            }
-            
-            .mobile-note {
-                font-size: 11px;
-                line-height: 1.4;
             }
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # Container for better styling
-    st.markdown('<div class="pdf-download-container">', unsafe_allow_html=True)
+    # Header container
+    st.markdown(f"""
+        <div class="pdf-download-container">
+            <h3>{title}</h3>
+            <div class="mobile-tip">{mobile_tip}</div>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Use Streamlit's built-in download button (more reliable on mobile)
-    col1, col2 = st.columns(2)
+    # Simple button layout using Streamlit columns
+    col1, col2, col3 = st.columns(3)
     
     with col1:
+        # Standard Streamlit download button (most compatible)
         st.download_button(
             label=download_text,
             data=pdf_bytes,
@@ -976,45 +977,194 @@ def render_pdf_download() -> None:
             mime="application/pdf",
             use_container_width=True,
             type="primary",
-            help="Click to download the PDF report" if language == Language.ENGLISH else "PDF raporu indirmek için tıklayın"
+            help="Standard download - works on most devices"
         )
     
     with col2:
+        # Email option (best for mobile)
+        if st.button(
+            email_text, 
+            use_container_width=True, 
+            type="secondary",
+            help="Email delivery - best for mobile devices"
+        ):
+            st.session_state.show_email_form = True
+    
+    with col3:
+        # Clear option
         if st.button(
             clear_text, 
-            key="clear_download", 
             use_container_width=True,
-            type="secondary",
-            help="Clear the download" if language == Language.ENGLISH else "İndirmeyi temizle"
+            help="Remove PDF from memory"
         ):
             st.session_state.pop("pdf_data", None)
             st.session_state.pop("pdf_filename", None)
+            st.session_state.pop("show_email_form", None)
             st.rerun()
     
-    # Mobile help note
-    st.markdown(f'<div class="mobile-note">{mobile_note}</div>', unsafe_allow_html=True)
+    # Email form (only when requested)
+    if st.session_state.get("show_email_form", False):
+        render_email_form_for_pdf(pdf_bytes, file_name, language)
+
+
+def render_email_form_for_pdf(pdf_bytes: bytes, filename: str, language: Language):
+    """Clean email form without JavaScript"""
     
-    # Alternative: Show PDF in browser for mobile users
-    if st.button(
-        "🔍 Tarayıcıda Görüntüle / View in Browser", 
-        use_container_width=True,
-        type="secondary",
-        help="Open PDF in browser for mobile viewing" if language == Language.ENGLISH else "Mobil görüntüleme için PDF'i tarayıcıda aç"
-    ):
-        # Create a data URL for viewing
-        pdf_b64 = base64.b64encode(pdf_bytes).decode()
-        pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_b64}" width="100%" height="600px" type="application/pdf"></iframe>'
+    if language == Language.TURKISH:
+        form_title = "📧 PDF'i Email ile Alın"
+        email_label = "Email Adresiniz:"
+        email_placeholder = "ornek@email.com"
+        send_text = "📧 PDF'i Gönder"
+        cancel_text = "❌ İptal"
+        success_msg = "✅ PDF başarıyla gönderildi! Email'inizi kontrol edin."
+        error_msg = "❌ Email gönderilirken hata oluştu."
+        invalid_email = "❌ Geçerli bir email adresi girin."
+    else:
+        form_title = "📧 Get PDF via Email"
+        email_label = "Your Email:"
+        email_placeholder = "example@email.com"
+        send_text = "📧 Send PDF"
+        cancel_text = "❌ Cancel"
+        success_msg = "✅ PDF sent successfully! Check your email."
+        error_msg = "❌ Failed to send email."
+        invalid_email = "❌ Please enter a valid email address."
+    
+    # Email form
+    st.markdown("---")
+    st.markdown(f"### {form_title}")
+    
+    with st.form("pdf_email_form", clear_on_submit=True):
+        user_email = st.text_input(
+            email_label,
+            placeholder=email_placeholder,
+            help="We'll send the PDF report to this email address"
+        )
         
-        # Show in expander for better UX
-        with st.expander("📱 PDF Görüntüleyici / PDF Viewer", expanded=True):
-            st.markdown(pdf_display, unsafe_allow_html=True)
-            st.info(
-                "Mobil cihazlarda: Dosyayı görüntüledikten sonra paylaş butonunu kullanarak indirebilirsiniz." 
-                if language == Language.TURKISH 
-                else "On mobile: After viewing the file, you can use the share button to download it."
+        # Form submission buttons
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            submitted = st.form_submit_button(
+                send_text, 
+                use_container_width=True, 
+                type="primary"
             )
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            cancelled = st.form_submit_button(
+                cancel_text, 
+                use_container_width=True
+            )
+        
+        # Handle form submission
+        if submitted:
+            if user_email and "@" in user_email and "." in user_email:
+                with st.spinner("Sending PDF..." if language == Language.ENGLISH else "PDF gönderiliyor..."):
+                    success = send_pdf_via_email(pdf_bytes, filename, user_email, language)
+                
+                if success:
+                    st.success(success_msg)
+                    st.session_state.show_email_form = False
+                    st.rerun()
+                else:
+                    st.error(error_msg)
+            else:
+                st.error(invalid_email)
+        
+        if cancelled:
+            st.session_state.show_email_form = False
+            st.rerun()
+
+
+def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, language: Language) -> bool:
+    """Send PDF via email - simplified and reliable"""
+    try:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.base import MIMEBase
+        from email import encoders
+        
+        # Get email credentials
+        sender_email = st.secrets.get("EMAIL_USER") or os.getenv("EMAIL_USER")
+        sender_password = st.secrets.get("EMAIL_PASSWORD") or os.getenv("EMAIL_PASSWORD")
+        
+        if not sender_email or not sender_password:
+            st.error("Email configuration missing")
+            return False
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = recipient_email
+        
+        # Email content based on language
+        if language == Language.TURKISH:
+            msg['Subject'] = f"İş Uyumluluk Raporu - {filename}"
+            body = f"""
+Merhaba,
+
+Talep ettiğiniz iş uyumluluk raporu ektedir.
+
+Dosya Adı: {filename}
+
+Bu rapor Selman Dedeakayoğulları'nın AI portföy asistanı tarafından oluşturulmuştur.
+
+Herhangi bir sorunuz varsa lütfen iletişime geçin.
+
+İyi günler!
+
+---
+Selman Dedeakayoğulları
+AI Portfolio Assistant
+            """
+        else:
+            msg['Subject'] = f"Job Compatibility Report - {filename}"
+            body = f"""
+Hello,
+
+Please find attached the job compatibility report you requested.
+
+File Name: {filename}
+
+This report was generated by Selman Dedeakayoğulları's AI portfolio assistant.
+
+If you have any questions, please feel free to get in touch.
+
+Best regards!
+
+---
+Selman Dedeakayoğulları
+AI Portfolio Assistant
+            """
+        
+        # Attach text body
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        
+        # Attach PDF
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(pdf_bytes)
+        encoders.encode_base64(part)
+        part.add_header(
+            'Content-Disposition',
+            f'attachment; filename="{filename}"'
+        )
+        msg.attach(part)
+        
+        # Send email
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            text = msg.as_string()
+            server.sendmail(sender_email, recipient_email, text)
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"Email sending failed: {str(e)}")
+        return False
+
+
 
 def initialize_session_state() -> None:
     """Initialize session state variables"""
