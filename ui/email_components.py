@@ -8,9 +8,9 @@ def get_ui_text(language: str) -> Dict[str, str]:
     if language == "tr":
         return {
             "email_review_title": "📧 **Lütfen e-postanızı göndermeden önce kontrol edin:**",
-            "from_label": "**Gönderen:**",
-            "email_label": "**E-posta:**",
-            "message_label": "**Mesaj:**",
+            "from_label": "Gönderen:",
+            "email_label": "E-posta:",
+            "message_label": "Mesaj:",
             "send_button": "✅ E-postayı Gönder",
             "cancel_button": "❌ İptal Et",
             "edit_button": "✏️ Mesajı Düzenle",
@@ -32,9 +32,9 @@ def get_ui_text(language: str) -> Dict[str, str]:
     else:  # English
         return {
             "email_review_title": "📧 **Please review your email before sending:**",
-            "from_label": "**From:**",
-            "email_label": "**Email:**",
-            "message_label": "**Message:**",
+            "from_label": "From:",
+            "email_label": "Email:",
+            "message_label": "Message:",
             "send_button": "✅ Send Email",
             "cancel_button": "❌ Cancel",
             "edit_button": "✏️ Edit Message",
@@ -66,18 +66,65 @@ def render_email_verification_card(email_data: Dict[str, str], language: str):
     with st.container():
         st.info(ui_text["email_review_title"])
         
-        # Display email details in a nice format
-        col1, col2 = st.columns([1, 2])
+        # Display email details in a responsive format
+        st.markdown(
+            """
+            <style>
+            .email-details {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .email-row {
+                display: flex;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            .email-label {
+                min-width: 80px;
+                font-weight: bold;
+                flex-shrink: 0;
+            }
+            .email-value {
+                flex: 1;
+                word-break: break-word;
+            }
+            @media (max-width: 768px) {
+                .email-row {
+                    gap: 10px;
+                }
+                .email-label {
+                    min-width: 70px;
+                    font-size: 14px;
+                }
+                .email-value {
+                    font-size: 14px;
+                }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         
-        with col1:
-            st.markdown(ui_text["from_label"])
-            st.markdown(ui_text["email_label"])
-            st.markdown(ui_text["message_label"])
-        
-        with col2:
-            st.markdown(f"{email_data['sender_name']}")
-            st.markdown(f"{email_data['sender_email']}")
-            st.markdown(f"{email_data['message']}")
+        st.markdown(
+            f"""
+            <div class="email-details">
+                <div class="email-row">
+                    <div class="email-label">{ui_text["from_label"]}</div>
+                    <div class="email-value">{email_data['sender_name']}</div>
+                </div>
+                <div class="email-row">
+                    <div class="email-label">{ui_text["email_label"]}</div>
+                    <div class="email-value">{email_data['sender_email']}</div>
+                </div>
+                <div class="email-row">
+                    <div class="email-label">{ui_text["message_label"]}</div>
+                    <div class="email-value">{email_data['message']}</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         
         # Generate and store CAPTCHA if not already present
         if 'email_captcha' not in st.session_state:
@@ -112,11 +159,11 @@ def render_email_verification_card(email_data: Dict[str, str], language: str):
             label_visibility="collapsed"
         )
         
-        # Action buttons
-        col1, col2, col3 = st.columns([1, 1, 2])
+        # Action buttons - Equal grid layout
+        col1, col2, col3 = st.columns(3)  # Equal columns (1:1:1 ratio)
         
         with col1:
-            if st.button(ui_text["send_button"], type="primary", key="send_email_btn"):
+            if st.button(ui_text["send_button"], type="primary", key="send_email_btn", use_container_width=True):
                 if captcha_input.upper() == st.session_state.email_captcha:
                     st.session_state.email_action = "send"
                     st.rerun()
@@ -124,15 +171,14 @@ def render_email_verification_card(email_data: Dict[str, str], language: str):
                     st.error(ui_text["captcha_error"])
         
         with col2:
-            if st.button(ui_text["cancel_button"], key="cancel_email_btn"):
+            if st.button(ui_text["cancel_button"], key="cancel_email_btn", use_container_width=True):
                 st.session_state.email_action = "cancel"
                 st.rerun()
         
         with col3:
-            if st.button(ui_text["edit_button"], key="edit_email_btn"):
+            if st.button(ui_text["edit_button"], key="edit_email_btn", use_container_width=True):
                 st.session_state.email_action = "edit"
                 st.rerun()
-
 
 def render_email_editor_card(email_data: Dict[str, str], language: str):
     """Render email editor card within the chat message"""

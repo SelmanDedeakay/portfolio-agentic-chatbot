@@ -20,20 +20,82 @@ load_dotenv()
 
 
 def detect_language_from_messages(messages: List[Dict]) -> str:
-    """Detect if user is speaking Turkish based on recent messages"""
+    """Geliştirilmiş dil tespiti - her mesajdan anlık tespit yapar"""
     if not messages:
         return "en"
     
-    # Check last few user messages for Turkish keywords/patterns
-    recent_user_messages = [msg['content'] for msg in messages[-5:] if msg['role'] == 'user']
-    turkish_keywords = ['hakkında', 'nedir', 'kimdir', 'nasıl', 'merhaba', 'teşekkür', 'iletişim', 'mesaj', 'gönder']
+    # SON KULLANICI MESAJINI AL (anlık tespit için)
+    last_user_message = None
+    for msg in reversed(messages):
+        if msg['role'] == 'user':
+            last_user_message = msg['content']
+            break
     
-    for message in recent_user_messages:
-        message_lower = message.lower()
-        if any(keyword in message_lower for keyword in turkish_keywords):
+    if not last_user_message:
+        return "en"
+    
+    message_lower = last_user_message.lower().strip()
+    
+    # Çok kısa mesajlar için özel kontrol
+    if len(message_lower) <= 3:
+        if message_lower in ['hi', 'hey']:
+            return "en"
+        elif message_lower in ['selam', 'merhaba']:
             return "tr"
     
-    return "en"
+    # Türkçe anahtar kelimeler (genişletilmiş)
+    turkish_keywords = [
+        'hakkında', 'nedir', 'kimdir', 'nasıl', 'merhaba', 'teşekkür', 'iletişim', 'mesaj', 'gönder',
+        'anlat', 'söyle', 'nerede', 'ne zaman', 'hangi', 'proje', 'projeler', 'deneyim', 'eğitim',
+        'çalışma', 'iş', 'üniversite', 'okul', 'mezun', 'değil', 'yok', 'var', 'olan', 'yapan',
+        'merhabalar', 'selam', 'günaydın', 'teşekkürler', 'sağol', 'kariyer', 'bilgi', 'selamlar',
+        'anladım', 'bilmiyorum', 'istiyorum', 'isterim', 've', 'bir', 'bu', 'şu', 'o', 'ben', 'sen',
+        'ile', 'için', 'ama', 'fakat', 'lakin', 'çünkü', 'ki', 'da', 'de', 'ta', 'te'
+    ]
+    
+    # İngilizce belirleyici kelimeler
+    english_keywords = [
+        'hello', 'hi', 'what', 'who', 'when', 'where', 'why', 'how', 'about', 'thank', 'thanks',
+        'tell', 'show', 'project', 'experience', 'work', 'education', 'university', 'job', 'i', 'you',
+        'know', 'dont', "don't", 'want', 'need', 'can', 'could', 'would', 'should', 'the', 'and',
+        'with', 'for', 'but', 'because', 'that', 'this', 'they', 'we', 'he', 'she', 'it', 'my', 'your'
+    ]
+    
+    turkish_score = 0
+    english_score = 0
+    
+    # Türkçe karakterler kontrolü (çok güçlü gösterge)
+    if any(char in message_lower for char in ['ç', 'ğ', 'ı', 'ö', 'ş', 'ü']):
+        turkish_score += 10
+    
+    # Özel durumlar - tam eşleşme
+    if message_lower in ['selamlar', 'selam', 'merhaba', 'merhabalar']:
+        return "tr"
+    elif message_lower in ['hello', 'hi', 'hey']:
+        return "en"
+        
+    # "I dont know" gibi özel İngilizce ifadeler
+    if any(phrase in message_lower for phrase in ["i dont", "i don't", "i want", "i need", "i can", "i would"]):
+        return "en"
+    
+    # Türkçe özel ifadeler
+    if any(phrase in message_lower for phrase in ["bilmiyorum", "istiyorum", "yapabilir", "söyleyebilir"]):
+        return "tr"
+    
+    # Anahtar kelime sayımı
+    for keyword in turkish_keywords:
+        if keyword in message_lower:
+            turkish_score += 2
+    
+    for keyword in english_keywords:
+        if keyword in message_lower:
+            english_score += 1
+    
+    # Eğer hiç puan yoksa, İngilizce default
+    if turkish_score == 0 and english_score == 0:
+        return "en"
+    
+    return "tr" if turkish_score > english_score else "en"
 
 
 class GeminiEmbeddingRAG:
@@ -54,7 +116,7 @@ class GeminiEmbeddingRAG:
             if api_key:
                 self.client = genai.Client(api_key=api_key)
                 self.configured = True
-                st.success("✅ Chatbot configured for embeddings and generation")
+
             else:
                 self.configured = False
                 st.error("❌ We are having trouble connecting to Chatbot.")
@@ -225,7 +287,7 @@ class GeminiEmbeddingRAG:
                         self.cv_embeddings = self.get_embeddings(self.cv_chunks)
                     
                     if self.cv_embeddings.size > 0:
-                        st.success(f"✅ Loaded Selman's CV data ({len(self.cv_chunks)} chunks)")
+
                         
                         # Initialize job compatibility analyzer with CV data
                         self.tool_definitions.initialize_job_analyzer(self.client, self.cv_data,self)
@@ -312,6 +374,9 @@ class GeminiEmbeddingRAG:
         if not self.configured:
             return "Gemini API not configured"
         
+        # Dil tespiti - hem sorgu hem de konuşma geçmişi
+        language = detect_language_from_messages((conversation_history or []) + [{"role": "user", "content": query}])
+        
         # Get conversation context for better tool handling
         recent_context = ""
         if conversation_history and len(conversation_history) > 1:
@@ -324,14 +389,14 @@ class GeminiEmbeddingRAG:
         
         # Job compatibility keywords
         job_keywords = ['job', 'position', 'role', 'hiring', 'recruit', 'vacancy', 'opening', 'career', 'employment', 
-                       'iş', 'pozisyon', 'işe alım', 'kariyer', 'istihdam', 'açık pozisyon']
+                    'iş', 'pozisyon', 'işe alım', 'kariyer', 'istihdam', 'açık pozisyon']
         is_job_query = any(keyword in query_lower for keyword in job_keywords)
         
         # Regular RAG search (still important for CV info)
         is_project_query = any(word in query_lower for word in ['proje', 'project', 'yaptığı', 'geliştirdiği'])
         is_experience_query = any(word in query_lower for word in ['deneyim', 'experience', 'çalış', 'work', 'iş'])
         
-            # Eğitim sorularını tespit etmek için
+        # Eğitim sorularını tespit etmek için
         is_education_query = any(word in query_lower for word in [
             'eğitim', 'education', 'university', 'üniversite', 'okul', 'school', 
             'mezun', 'graduate', 'diploma', 'degree', 'lisans', 'bachelor',
@@ -343,43 +408,66 @@ class GeminiEmbeddingRAG:
         relevant_chunks = self.search_similar_chunks(query, top_k=top_k)
         context = "\n\n".join([chunk["text"] for chunk in relevant_chunks])
         
-        # Enhanced prompt with all tool awareness
-        # app.py'de generate_response metodunun prompt kısmını güncelleyin:
+        # Dile göre prompt oluştur
+        if language == "tr":
+            prompt = f"""Sen Selman Dedeakayoğulları'nın yapay zeka portföy asistanısın. Onun portföy web sitesinde gömülüsün. Ziyaretçiler sana sorular soracak.
 
-        prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You are embedded in his portfolio website. Visitors will ask questions to you, ask their names. You can respond in either English or Turkish based on the user's language preference.
+    KURALLAR:
+    - SADECE TÜRKÇE yanıt ver
+    - Sadece verilen bağlam bilgilerini kullan
+    - Profesyonel ve yardımsever ol
+    - Markdown formatını kullan
+    - Referans sorulduğunda göster ve iletişim bilgilerinin talep üzerine verildiğini belirt
+    - Proje veya deneyim sorularında, bağlamdan tüm ilgili öğeleri listele
+    - Proje sorularında: proje adları, kullanılan teknolojiler ve açıklamalar dahil et
+    - Deneyim sorularında: şirket adları, pozisyonlar, süreler ve açıklamalar dahil et
+    - SELMAN MEZUN OLMUŞTUR
 
-Rules:
-- Respond in the same language as the user's query
-- Only use information from the provided context for CV questions
-- Be professional and helpful
-- Use markdown formatting for clarity and readability.
-- If the user asks for references, display them and add a note that contact information is available upon request
-- When asked about projects or work experience, list ALL relevant items from the context
-- For project questions, include project names, technologies used, and descriptions. Do not give links unless asked specifically. When talking about "Agentic Portfolio Bot" make a joke about it, since it is you.
-- For experience questions, include company names, positions, durations, and descriptions
-- SELMAN IS GRADUATED.
+    ARAÇ KULLANIMI:
+    - Biri Selman'la iletişime geçmek istediğinde ve tüm bilgiler mevcutsa prepare_email aracını kullan
+    - Son paylaşımlar, makaleler sorulduğunda get_recent_posts kullan
+    - İş ilanı verildiğinde analyze_job_compatibility kullan
+    - PDF istendiğinde generate_compatibility_pdf kullan
 
-TOOL USAGE:
-- Use prepare_email tool when someone wants to contact Selman and you have ALL required information
-- Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content, LinkedIn activity, or social media
-- Use analyze_job_compatibility tool when someone provides a job description or asks about fit for a specific role
-- Use generate_compatibility_pdf tool when user asks for PDF, download, or wants to save the job compatibility report
-- Only ask for email details: sender name and surname, sender email, and message content. Do not skip any of these.
-- DO NOT ask for email subject - it will be automatically set
-- Extract information naturally from conversation context
-- If someone wants to contact Selman but you don't have complete info, ALWAYS ask for missing details conversationally
-- After generating a job compatibility report, mention that user can ask for a PDF version to download
+    Son Konuşma Bağlamı:
+    {recent_context}
 
-Recent Conversation Context:
-{recent_context}
+    CV Bağlamı:
+    {context}
 
-CV Context:
-{context}
+    Kullanıcı Sorusu: {query}
 
-User Question: {query}
+    Yanıt:"""
+        else:
+            prompt = f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You are embedded in his portfolio website. Visitors will ask questions to you.
 
-Let’s work this out in a step-by-step way to be sure we have the right answer.
-Response:"""
+    Rules:
+    - Respond ONLY in ENGLISH
+    - Only use information from the provided context for CV questions
+    - Be professional and helpful
+    - Use markdown formatting for clarity and readability
+    - If the user asks for references, display them and add a note that contact information is available upon request
+    - When asked about projects or work experience, list ALL relevant items from the context
+    - For project questions, include project names, technologies used, and descriptions. Do not give links unless asked specifically. When talking about "Agentic Portfolio Bot" make a joke about it, since it is you.
+    - For experience questions, include company names, positions, durations, and descriptions
+    - SELMAN IS GRADUATED
+
+    TOOL USAGE:
+    - Use prepare_email tool when someone wants to contact Selman and you have ALL required information
+    - Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content, LinkedIn activity, or social media
+    - Use analyze_job_compatibility tool when someone provides a job description or asks about fit for a specific role
+    - Use generate_compatibility_pdf tool when user asks for PDF, download, or wants to save the job compatibility report
+
+    Recent Conversation Context:
+    {recent_context}
+
+    CV Context:
+    {context}
+
+    User Question: {query}
+
+    Let's work this out in a step-by-step way to be sure we have the right answer.
+    Response:"""
         
         try:
             response = self.client.models.generate_content(
@@ -387,7 +475,7 @@ Response:"""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=1200,  # Increased for job analysis content
+                    max_output_tokens=1200,
                     tools=self.tool_definitions.get_all_tools()
                 )
             )
@@ -396,7 +484,6 @@ Response:"""
             if response.candidates and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, 'function_call') and part.function_call:
-                        # Execute tool using tool_definitions
                         tool_name = part.function_call.name
                         tool_args = {k: v for k, v in part.function_call.args.items()}
                         
@@ -408,12 +495,17 @@ Response:"""
                             elif tool_name == "get_recent_posts":
                                 return result["data"]["formatted_response"]
                             elif tool_name == "analyze_job_compatibility":
-                                # MODIFIED: Save the report AND correct job title to session state
                                 st.session_state.last_compatibility_report = result["data"]["report"]
                                 st.session_state.last_job_title = result["data"]["job_title"]
-                                return result["data"]["report"] + "\n\n📄 *You can ask for a PDF version of this report if you'd like to download it!*"
+                                
+                                # Dile göre PDF mesajı
+                                if language == "tr":
+                                    pdf_msg = "\n\n📄 *Bu raporun PDF versiyonunu indirmek isterseniz söyleyebilirsiniz!*"
+                                else:
+                                    pdf_msg = "\n\n📄 *You can ask for a PDF version of this report if you'd like to download it!*"
+                                
+                                return result["data"]["report"] + pdf_msg
                             elif tool_name == "generate_compatibility_pdf":
-                                # Return a success message that will trigger the PDF download button
                                 return "PDF_GENERATED"
                         else:
                             return f"❌ {result['message']}"
@@ -421,9 +513,10 @@ Response:"""
             return response.text if response.text else "No response generated"
             
         except Exception as e:
-            # Added more context to the error for easier debugging
-            return f"Error generating response: {e}. The API response might have been empty or invalid."
-
+            if language == "tr":
+                return f"Yanıt oluşturulurken hata: {e}"
+            else:
+                return f"Error generating response: {e}. The API response might have been empty or invalid."
 
 # ... (rest of the app.py file remains the same)
 def main():
@@ -523,36 +616,39 @@ def main():
     # Chat input
     if prompt := st.chat_input("Ask about Selman's background, request to contact him, or paste a job description for compatibility analysis..."):
         # Add user message
-        
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.write(prompt)
         
-        # Detect language again after new message
+        # HER YENİ MESAJDA DİL TESPİTİ YAP (bu satır çok önemli)
         language = detect_language_from_messages(st.session_state.messages)
         ui_text = get_ui_text(language)
         
         # Generate response
         with st.chat_message("assistant"):
-            with st.spinner("Processing your request..." if language == "en" else "İsteğiniz işleniyor..."):
+            # Dile göre spinner mesajı
+            spinner_msg = "İsteğiniz işleniyor..." if language == "tr" else "Processing your request..."
+            with st.spinner(spinner_msg):
                 response = rag_system.generate_response(prompt, st.session_state.messages)
             
             # Check if email was prepared
-# In the chat interface section, update the response handling:
-        if response == "EMAIL_PREPARED_FOR_REVIEW":
-            message = ui_text["email_prepared"]
-            st.write(message)
-            st.session_state.messages.append({"role": "assistant", "content": message})
-            if "pending_email" in st.session_state:
-                render_email_verification_card(st.session_state.pending_email, language)
-        elif response == "PDF_GENERATED":
-            message = "✅ PDF report generated successfully! You can download it using the button below." if language == "en" else "✅ PDF raporu başarıyla oluşturuldu! Aşağıdaki butona tıklayarak indirebilirsiniz."
-            st.write(message)
-            st.session_state.messages.append({"role": "assistant", "content": message})
-            # The download button will be shown by the existing code below
-        else:
-            st.write(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            if response == "EMAIL_PREPARED_FOR_REVIEW":
+                message = ui_text["email_prepared"]
+                st.write(message)
+                st.session_state.messages.append({"role": "assistant", "content": message})
+                if "pending_email" in st.session_state:
+                    render_email_verification_card(st.session_state.pending_email, language)
+            elif response == "PDF_GENERATED":
+                # Dile göre PDF mesajı
+                if language == "tr":
+                    message = "✅ PDF raporu başarıyla oluşturuldu! Aşağıdaki butona tıklayarak indirebilirsiniz."
+                else:
+                    message = "✅ PDF report generated successfully! You can download it using the button below."
+                st.write(message)
+                st.session_state.messages.append({"role": "assistant", "content": message})
+            else:
+                st.write(response)
+                st.session_state.messages.append({"role": "assistant", "content": response})
     if "pdf_data" in st.session_state and "pdf_filename" in st.session_state:
         pdf_data = st.session_state.pdf_data
         pdf_filename = st.session_state.pdf_filename
@@ -573,14 +669,22 @@ def main():
     with st.sidebar:
         st.markdown("### 🔍 So you are a curious one :)")
         st.markdown("- **Embeddings**: text-embedding-004")
-        st.markdown("- **Generation**: gemini-2.0-flash-exp")
+        st.markdown("- **Generation**: gemini-2.5-flash-lite-preview-06-17")
         st.markdown("- **Vector dims**: 768")
         st.markdown("- **Search**: Cosine similarity")
-        st.markdown("- **Tools**: Email with verification 📧")
-        st.markdown("- **Tools**: Social Media Posts 📱")
-        st.markdown("- **Tools**: Job Compatibility Analysis 💼")
         st.markdown("- **Data Source**: JSON")
+        if st.button("🔍 View Generated Chunks"):
+            st.session_state.show_chunks = not st.session_state.get("show_chunks", False)
         
+        if st.session_state.get("show_chunks", False):
+            st.markdown("### 📋 Generated Chunks")
+            if rag_system.configured and rag_system.cv_chunks:
+                for i, chunk in enumerate(rag_system.cv_chunks):
+                    with st.expander(f"Chunk {i+1} ({len(chunk)} chars)"):
+                        st.text(chunk)
+            else:
+                st.warning("No chunks available")
+
         if rag_system.configured and rag_system.cv_chunks:
             st.markdown(f"- **Chunks loaded**: {len(rag_system.cv_chunks)}")
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")

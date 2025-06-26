@@ -1,21 +1,20 @@
 {
-  "name": "Selman Dedeakayoğulları Jr.",
-  "title": "AI Engineer",
+  "name": "Selman Dedeakayoğulları",
+  "title": "Jr. AI Engineer",
   "location": "Eskişehir/Türkiye",
   "email": "selmandedeakayogullari@gmail.com",
-  "phone": "+90 542 538 95 48",
+  "phone": "Available upon request",
   "links": {
     "linkedin": "Selman Dedeakayoğulları",
     "github": "SelmanDedeakay",
-    "medium": "Selman Dedeakayoğulları",
-    "portfolio": "selmandedeakay.github.io"
+    "medium": "Selman Dedeakayoğulları"
   },
   "profile": "Known for combining technical expertise with a positive and engaging team spirit, I work in the field of artificial intelligence and software development, particularly focusing on large language models (LLMs) and computer vision. I enjoy generating original ideas and implementing them in the most practical and effective way. I believe that collaboration amplifies success, and I always strive to elevate both performance and team morale in every project I contribute to.",
   "education": [
     {
-      "institution": "Eskişehir Technical University",
+      "institution": "Eskişehir Technical University ",
       "degree": "Bachelor of Engineering",
-      "years": "2021 – 2025",
+      "years": "2021 – 2025 (Graduated with GPA 3.15/4.00)",
       "location": "Eskişehir, Turkey"
     },
     {
@@ -27,7 +26,7 @@
     {
       "institution": "University Of Turkish Aeronautical Association",
       "degree": "Bachelor of Engineering",
-      "years": "2020 – 2021",
+      "years": "2020 – 2021 (Transferred to Eskişehir Technical University)",
       "location": "Ankara, Turkey",
       "memberships": [
         "IEEE UTAA Computer Society",
@@ -105,37 +104,37 @@
   "projects": [
     {
       "name": "Agentic Portfolio Chatbot",
-      "technology": "Agents & Gemini API",
+      "technology": "Agentic AI, Gemini API, RAG (Retrieval Augmented Generation)",
       "description": "Developed an AI-powered portfolio chatbot using Google Gemini and Streamlit, which is fully functional in my portfolio website live. The system answers questions about my background, projects, and skills, and allows direct contact via secure email. Integrated a recruiter tool that analyzes any job description and reports my compatibility percentage, highlighting matched skills and experience."
     },
     {
       "name": "Social Media Analysis for Earthquake Victim Reports",
-      "technology": "Large Language Models",
+      "technology": "Large Language Models (LLMs), NLP (Natural Language Processing), YOLO, Computer Vision",
       "description": "Developed a multimodal AI system combining LLM-based information extraction from social media with drone-based visual verification. Achieved high accuracy in identifying urgent needs, locations, and structural damage to support real-time disaster response."
     },
     {
       "name": "Gendiary: New-Gen Social Media via Stable Diffusion",
-      "technology": "Stable Diffusion",
+      "technology": "Stable Diffusion,Computer Vision, Prompt Engineering, API Development",
       "description": "A Social Media Application using Stable Diffusion for Creating Content, for Software Engineering Course Project"
     },
     {
       "name": "Image Captioning Project",
-      "technology": "Vision Language Models",
+      "technology": "Vision Language Models (VLMs), PyTorch, Fine-tuning",
       "description": "Fine tuned several VLM's and optimized the pipelines for an AI competition."
     },
     {
       "name": "Face Recognition Application",
-      "technology": "PyTorch",
+      "technology": "PyTorch, CNNs, MT-CNN",
       "description": "MT-CNN based Face Recognition application. Also published an article about it on Medium account."
     },
     {
       "name": "Media Control with Gesture Recognition",
-      "technology": "Scikit-learn",
+      "technology": "Scikit-learn, MediaPipe, OpenCV",
       "description": "Machine Learning Course Term Project using MediaPipe and custom algorithms to detect different gestures."
     },
     {
       "name": "City Sounds Classification",
-      "technology": "TensorFlow",
+      "technology": "TensorFlow,Keras,CNNs",
       "description": "Global AI Hub Deep Learning Bootcamp Project. Sound spectrograms from UrbanSound8K dataset used for classification."
     }
   ],
@@ -174,25 +173,25 @@
       "name": "Alperen Enes BAYAR",
       "title": "AI Research Engineer",
       "organization": "HAVELSAN",
-      "email": "enesalperenbayar@gmail.com"
+      "email": "Available upon request"
     },
     {
       "name": "Abdullatif BABA",
       "title": "Associate Professor",
       "organization": "Kuwait College of Science and Technology",
-      "email": "ababa@thk.edu.tr"
+      "email": "Available upon request"
     },
     {
       "name": "Mehmet KOÇ",
       "title": "Associate Professor",
       "organization": "Eskişehir Technical University",
-      "email": "mehmetkoc@eskisehir.edu.tr"
+      "email": "Available upon request"
     },
     {
       "name": "Sema CANDEMİR",
       "title": "Associate Professor",
       "organization": "Eskişehir Technical University",
-      "email": "semacandemir@eskisehir.edu.tr"
+      "email": "Available upon request"
     }
   ]
 }
