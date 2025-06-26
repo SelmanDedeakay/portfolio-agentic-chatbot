@@ -12,6 +12,7 @@ import json
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+import time
 
 # Import tools and components
 from tools.email_tool import EmailTool
@@ -135,6 +136,8 @@ def get_system_text(language_code: str) -> Dict[str, str]:
             "cache_cleared_success": "Önbellek temizlendi!",
             
             # Error messages
+            "api_retry": "🔄 API'den yanıt alamadım, tekrar deniyorum...",
+            "api_retry_failed": "❌ API'den birkaç denemeye rağmen yanıt alınamadı. Lütfen daha sonra tekrar deneyin.",
             "embedding_error": "Embedding hatası: {error}",
             "error_generating_response": "Yanıt oluşturulurken hata: {error}. API yanıtı boş veya geçersiz olabilir. Lütfen birkaç saniye sonra tekrar deneyin.",
             "embeddings_not_available": "Embeddings mevcut değil",
@@ -222,6 +225,8 @@ def get_system_text(language_code: str) -> Dict[str, str]:
             "cache_cleared_success": "Cache cleared!",
             
             # Error messages
+            "api_retry": "🔄 Didn't get response from API, retrying...",
+            "api_retry_failed": "❌ Failed to get response from API after multiple attempts. Please try again later.",
             "embedding_error": "Embedding error: {error}",
             "error_generating_response": "Error generating response: {error}. The API response might have been empty or invalid. Please wait a moment and try again.",
             "embeddings_not_available": "Embeddings not available",
@@ -1000,7 +1005,9 @@ class GeminiEmbeddingRAG:
     - Türkçe için: report_language: "tr"
     - İngilizce için: report_language: "en"
     - Kullanıcı dil tercihi belirtmezse, Türkçe olarak varsay
-
+    ÖNEMLİ NOTLAR:
+    - Bir kullanıcı hem analiz hem de PDF isterse, önce analyze_job_compatibility aracını çağır, sonra generate_compatibility_pdf aracını otomatik olarak çağır.
+    - PDF oluşturmadan önce kullanıcıdan onay isteme, direkt oluştur.
     DİĞER ARAÇLAR:
     - Birisi Selman'ın son gönderileri, makaleleri, Medium içeriği, LinkedIn etkinliği veya sosyal medyası hakkında soru sorduğunda get_recent_posts aracını kullanın
     - Kullanıcı PDF istediğinde, indirdiğinde veya iş uyumluluk raporunu kaydetmek istediğinde generate_compatibility_pdf aracını kullanın
@@ -1076,7 +1083,7 @@ class GeminiEmbeddingRAG:
             return AppConstants.DEFAULT_TOP_K
     
     def _handle_function_call(self, part: Any, language: Language) -> Optional[str]:
-        """Handle function call from LLM response"""
+        """Handle function call from LLM response with support for multiple tools"""
         if not hasattr(part, 'function_call') or not part.function_call:
             return None
         
@@ -1088,42 +1095,61 @@ class GeminiEmbeddingRAG:
         if not result["success"]:
             return f"❌ {result['message']}"
         
-        # Handle different tool results
-        if tool_name == "prepare_email":
-            return "EMAIL_PREPARED_FOR_REVIEW"
-        
-        elif tool_name == "get_recent_posts":
-            return result["data"]["formatted_response"]
-        
-        elif tool_name == "analyze_job_compatibility":
+        # Handle tool results with potential chaining
+        if tool_name == "analyze_job_compatibility":
             st.session_state.last_compatibility_report = result["data"]["report"]
             st.session_state.last_job_title = result["data"]["job_title"]
+            
+            # Check if we should automatically generate PDF
+            if st.session_state.get("auto_generate_pdf", False):
+                st.session_state.auto_generate_pdf = False  # Reset flag
+                pdf_result = self.tool_definitions.execute_tool(
+                    "generate_compatibility_pdf", {}
+                )
+                if pdf_result["success"]:
+                    return "PDF_GENERATED"
             
             pdf_msg = (
                 "\n\n📄 *Bu raporun PDF versiyonunu indirmek isterseniz söyleyebilirsiniz!*"
                 if language == Language.TURKISH
                 else "\n\n📄 *You can ask for a PDF version of this report if you'd like to download it!*"
             )
-            
             return result["data"]["report"] + pdf_msg
         
         elif tool_name == "generate_compatibility_pdf":
             return "PDF_GENERATED"
         
+        elif tool_name == "prepare_email":
+            return "EMAIL_PREPARED_FOR_REVIEW"
+        
+        elif tool_name == "get_recent_posts":
+            return result["data"]["formatted_response"]
+        
         return None
     
+  
     def generate_response(self, query: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
-        """Generate response with tool calling capability and Turkish support"""
+        """Generate response with tool calling capability, Turkish support, and retry mechanism"""
         if not self.configured:
             language = LanguageDetector.detect_from_messages(conversation_history or [])
             system_text = get_system_text(language.value)
             return system_text["api_not_configured"]
         
-        # Detect language
+        # 1. PDF generation kontrolü ekleyin (YENİ KOD)
+        pdf_keywords = {
+            "tr": ["pdf", "indir", "kaydet", "rapor al"],
+            "en": ["pdf", "download", "save", "get report"]
+        }
+        
+        # Dil algılama
         messages = (conversation_history or []) + [{"role": "user", "content": query}]
         language = LanguageDetector.detect_from_messages(messages)
         
-        # Get conversation context
+        # PDF isteği kontrolü
+        if any(kw in query.lower() for kw in pdf_keywords.get(language.value, pdf_keywords["en"])):
+            st.session_state.auto_generate_pdf = True
+        
+        # 2. Orijinal kodun devamı (aşağıdaki kısmı değiştirmeyin)
         recent_context = self._get_recent_context(conversation_history or [])
         
         # Classify query
@@ -1137,32 +1163,79 @@ class GeminiEmbeddingRAG:
         # Build prompt
         prompt = self._build_prompt(query, context, language, recent_context)
         
-        try:
-            # Generate response
-            response = self.client.models.generate_content(
-                model=AppConstants.MODEL_NAME,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=AppConstants.DEFAULT_TEMPERATURE,
-                    max_output_tokens=AppConstants.MAX_OUTPUT_TOKENS,
-                    tools=self.tool_definitions.get_all_tools()
+        # System text for error messages
+        system_text = get_system_text(language.value)
+        
+        # Retry mechanism
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                # Generate response
+                response = self.client.models.generate_content(
+                    model=AppConstants.MODEL_NAME,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=AppConstants.DEFAULT_TEMPERATURE,
+                        max_output_tokens=AppConstants.MAX_OUTPUT_TOKENS,
+                        tools=self.tool_definitions.get_all_tools()
+                    )
                 )
-            )
-            
-            # Check for function calls
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
-                    if function_result := self._handle_function_call(part, language):
-                        return function_result
-            
-            # Return text response
-            system_text = get_system_text(language.value)
-            return response.text if response.text else system_text["no_response_generated"]
-            
-        except Exception as e:
-            # Enhanced error handling with retry suggestion
-            system_text = get_system_text(language.value)
-            return system_text["error_generating_response"].format(error=e)
+                
+                # Check if response is valid
+                if response is None:
+                    raise Exception("API returned None response")
+                
+                # Check for function calls - with safe access
+                if (hasattr(response, 'candidates') and response.candidates 
+                    and len(response.candidates) > 0 
+                    and hasattr(response.candidates[0], 'content')
+                    and response.candidates[0].content
+                    and hasattr(response.candidates[0].content, 'parts')
+                    and response.candidates[0].content.parts):
+                    
+                    for part in response.candidates[0].content.parts:
+                        if function_result := self._handle_function_call(part, language):
+                            return function_result
+                
+                # Return text response - with safe access
+                if hasattr(response, 'text') and response.text:
+                    return response.text
+                else:
+                    # If no text, might be an empty response
+                    if attempt < max_retries - 1:  # Not the last attempt
+                        raise Exception("Empty response from API")
+                    else:
+                        return system_text["no_response_generated"]
+                    
+            except Exception as e:
+                if attempt < max_retries - 1:  # Not the last attempt
+                    # Show retry message
+                    retry_message = (
+                        "🔄 API'den yanıt alamadım, tekrar deniyorum..." 
+                        if language == Language.TURKISH 
+                        else "🔄 Didn't get response from API, retrying..."
+                    )
+                    
+                    # Display retry message in UI
+                    if 'messages' in st.session_state:
+                        # Add temporary message
+                        temp_placeholder = st.empty()
+                        with temp_placeholder.container():
+                            st.info(retry_message)
+                        
+                        # Wait 1 second
+                        time.sleep(1)
+                        
+                        # Clear temporary message
+                        temp_placeholder.empty()
+                    
+                    continue  # Try again
+                else:
+                    # Last attempt failed, return error
+                    return system_text["error_generating_response"].format(error=str(e))
+        
+        # Should never reach here, but just in case
+        return system_text["no_response_generated"]
 
 
 class ChatInterface:
@@ -1274,8 +1347,37 @@ class ChatInterface:
         with st.chat_message("user"):
             st.write(prompt)
         
-        # Detect language for UI
-        language = LanguageDetector.detect_from_messages(st.session_state.messages)
+        # Check if user is requesting a report in a specific language
+        requested_language = None
+        prompt_lower = prompt.lower()
+        
+        # Check for Turkish report request
+        turkish_indicators = ['turkish', 'türkçe', 'turkce', 'report in turkish', 'raporu türkçe']
+        english_indicators = ['english', 'ingilizce', 'report in english', 'raporu ingilizce']
+        
+        for indicator in turkish_indicators:
+            if indicator in prompt_lower:
+                requested_language = Language.TURKISH
+                # Store the requested language preference
+                st.session_state.preferred_language = Language.TURKISH
+                break
+        
+        if not requested_language:
+            for indicator in english_indicators:
+                if indicator in prompt_lower:
+                    requested_language = Language.ENGLISH
+                    # Store the requested language preference
+                    st.session_state.preferred_language = Language.ENGLISH
+                    break
+        
+        # Detect language for UI - use requested language or stored preference if available
+        if requested_language:
+            language = requested_language
+        elif hasattr(st.session_state, 'preferred_language'):
+            language = st.session_state.preferred_language
+        else:
+            language = LanguageDetector.detect_from_messages(st.session_state.messages)
+        
         system_text = get_system_text(language.value)
         
         # Generate response
@@ -1318,7 +1420,6 @@ class ChatInterface:
                     "role": "assistant", 
                     "content": response
                 })
-
 
 def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
     """Render sidebar with system information and cache controls"""

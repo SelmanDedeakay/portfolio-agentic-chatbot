@@ -28,15 +28,13 @@ class ToolDefinitions:
      
     @staticmethod
     def get_pdf_generation_tool_definition() -> Tool:
-        """
-        Get PDF generation tool definition.
-        MODIFIED: This tool no longer requires parameters. It acts as a trigger
-        to generate a PDF from the last report stored in the session state.
-        """
+        """Get PDF generation tool definition."""
         generate_pdf_func = FunctionDeclaration(
             name="generate_compatibility_pdf",
-            description="Generates a PDF of the most recently created job compatibility report. Use this when the user asks to download, save, or get a PDF of the analysis they just saw.",
-            parameters={"type": "object", "properties": {}} # No parameters needed from the model
+            description="Generates a PDF of the most recently created job compatibility report. "
+                    "This tool is often called automatically after job analysis when PDF is requested. "
+                    "Use this when the user asks to download, save, or get a PDF of the analysis.",
+            parameters={"type": "object", "properties": {}}  # No parameters needed
         )
         
         return Tool(function_declarations=[generate_pdf_func])
