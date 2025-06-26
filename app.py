@@ -895,116 +895,76 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
+import base64
+import streamlit as st
+import streamlit.components.v1 as components
+import base64
+import streamlit as st
+import streamlit.components.v1 as components
+
 def render_pdf_download() -> None:
-    """Simple and reliable PDF download without custom JavaScript"""
-    if "pdf_data" not in st.session_state or "pdf_filename" not in st.session_state:
+    if not {"pdf_data", "pdf_filename"} <= st.session_state.keys():
         return
 
-    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+    # ------------------------------------------------------------------ #
+    # 1) Verileri al
+    # ------------------------------------------------------------------ #
     pdf_bytes = st.session_state.pdf_data
     file_name = st.session_state.pdf_filename
-    
-    # UI text
-    if language == Language.TURKISH:
-        title = "📄 PDF Raporu Hazır!"
-        download_text = "💻 PDF İndir"
-        email_text = "📧 Email Gönder"
-        clear_text = "🗑️ Temizle"
-        mobile_tip = "📱 Mobil cihazda mısınız? Email seçeneğini deneyin!"
-    else:
-        title = "📄 PDF Report Ready!"
-        download_text = "💻 Download PDF"
-        email_text = "📧 Email PDF"
-        clear_text = "🗑️ Clear"
-        mobile_tip = "📱 On mobile? Try the email option!"
+    b64_pdf   = base64.b64encode(pdf_bytes).decode()
+    data_url  = f"data:application/pdf;base64,{b64_pdf}"
 
-    # Clean CSS without JavaScript
-    st.markdown("""
-        <style>
-        .pdf-download-container {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 25px;
-            border-radius: 15px;
-            text-align: center;
-            color: white;
-            margin: 20px 0;
-            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-        }
-        
-        .mobile-tip {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 12px;
-            border-radius: 10px;
-            margin: 15px 0;
-            font-size: 14px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .download-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        @media (max-width: 768px) {
-            .download-buttons {
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # ------------------------------------------------------------------ #
+    # 2) Dil başlıkları
+    # ------------------------------------------------------------------ #
+    lang = LanguageDetector.detect_from_messages(
+        st.session_state.get("messages", [])
+    )
 
-    # Header container
-    st.markdown(f"""
-        <div class="pdf-download-container">
-            <h3>{title}</h3>
-            <div class="mobile-tip">{mobile_tip}</div>
-        </div>
-    """, unsafe_allow_html=True)
+    tr = lang == Language.TURKISH
+    title         = "📄 PDF Raporu Hazır!"          if tr else "📄 PDF Report Ready!"
+    view_text     = "👁️ PDF'yi Görüntüle"          if tr else "👁️ View PDF"
+    download_text = "💾 PDF İndir"                 if tr else "💾 Download PDF"
+    mobile_tip    = "📱 Mobilde PDF görüntüleme önerilir!" if tr \
+                    else "📱 PDF viewing recommended on mobile!"
+    email_text    = "📧 Email Gönder"              if tr else "📧 Email PDF"
+    clear_text    = "🗑️ Temizle"                   if tr else "🗑️ Clear"
+
+    # ------------------------------------------------------------------ #
+    # 3) İndir butonu
+    # ------------------------------------------------------------------ #
+
+    # ------------------------------------------------------------------ #
+    # 4) PDF Önizleme
+    # ------------------------------------------------------------------ #
+    st.write("PDF Önizleme:" if tr else "PDF Preview:")
+    st.write(f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="600px"></iframe>', unsafe_allow_html=True)
+
     
-    # Simple button layout using Streamlit columns
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # Standard Streamlit download button (most compatible)
-        st.download_button(
-            label=download_text,
-            data=pdf_bytes,
-            file_name=file_name,
-            mime="application/pdf",
-            use_container_width=True,
-            type="primary",
-            help="Standard download - works on most devices"
-        )
-    
-    with col2:
-        # Email option (best for mobile)
-        if st.button(
-            email_text, 
-            use_container_width=True, 
-            type="secondary",
-            help="Email delivery - best for mobile devices"
-        ):
-            st.session_state.show_email_form = True
-    
-    with col3:
-        # Clear option
-        if st.button(
-            clear_text, 
-            use_container_width=True,
-            help="Remove PDF from memory"
-        ):
-            st.session_state.pop("pdf_data", None)
-            st.session_state.pop("pdf_filename", None)
-            st.session_state.pop("show_email_form", None)
-            st.rerun()
-    
-    # Email form (only when requested)
-    if st.session_state.get("show_email_form", False):
-        render_email_form_for_pdf(pdf_bytes, file_name, language)
+    with st.container():
+        # Ekran boyutuna göre sütun düzeni
+        if st.session_state.get('mobile_view', False):
+            # Mobile görünüm - tek sütun
+            if st.button(email_text, use_container_width=True, type="secondary"):
+                st.session_state.show_email_form = True
+            if st.button(clear_text, use_container_width=True, type="secondary"):
+                for k in ("pdf_data", "pdf_filename", "show_email_form"):
+                    st.session_state.pop(k, None)
+                st.rerun()
+        else:
+            # Desktop görünüm - iki sütun
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(email_text, use_container_width=True, type="secondary"):
+                    st.session_state.show_email_form = True
+            with col2:
+                if st.button(clear_text, use_container_width=True, type="secondary"):
+                    for k in ("pdf_data", "pdf_filename", "show_email_form"):
+                        st.session_state.pop(k, None)
+                    st.rerun()
+
+    if st.session_state.get("show_email_form"):
+        render_email_form_for_pdf(pdf_bytes, file_name, lang)
 
 
 def render_email_form_for_pdf(pdf_bytes: bytes, filename: str, language: Language):
