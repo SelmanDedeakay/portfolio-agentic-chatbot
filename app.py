@@ -1590,7 +1590,8 @@ def main():
     st.set_page_config(
         page_title="Selman DEDEAKAYOĞULLARI Portfolio RAG Chatbot",
         page_icon="🔍",
-        layout="centered"
+        layout="centered",
+        initial_sidebar_state="collapsed"
     )
     
     # Header
