@@ -528,7 +528,7 @@ def main():
     
     st.title("Welcome!")
     st.caption("I'm Selman's AI portfolio assistant, what would you like to know about him?")
-    
+    st.warning("⚠️ Job Compatibility Analysis is currently unavailable. I'm working on it and it will be back soon! In the meantime, please feel free to check other features of the chatbot. Thank you for your understanding! 🙏")
     # Initialize RAG system
     if "rag_system" not in st.session_state:
         with st.spinner("Initializing Chatbot"):
