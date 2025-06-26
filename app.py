@@ -895,26 +895,26 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
-def clear_pdf_state():
-    # 0.5-1 sn sonra sil
-    import threading, time
-    threading.Timer(1, lambda: [
-        st.session_state.pop("pdf_data", None),
+
+def render_pdf_download():
+    if "pdf_data" not in st.session_state:
+        return  # gösterilecek PDF yok
+
+    # Butona basıldıysa download_button True döner.
+    download_clicked = st.download_button(
+        label="📄 Download PDF Report",
+        data=st.session_state.pdf_data,
+        file_name=st.session_state.pdf_filename,
+        mime="application/pdf",
+        key="download_pdf",
+    )
+
+    # Ana thread, Streamlit bağlamında çalışıyoruz → güvenli
+    if download_clicked:
+        # ✅ Kullanıcı jesti + tarayıcı isteği aynı anda oluştu,
+        #   bytes'ı burada silmek artık güvenli.
+        st.session_state.pop("pdf_data",  None)
         st.session_state.pop("pdf_filename", None)
-    ]).start()
-def render_pdf_download() -> None:
-    """Render PDF download button if available"""
-    if "pdf_data" in st.session_state and "pdf_filename" in st.session_state:
-        st.download_button(
-            label="📄 Download PDF Report / PDF Raporu İndir",
-            data=st.session_state.pdf_data,
-            file_name=st.session_state.pdf_filename,
-            mime="application/pdf",
-            key="download_pdf",
-            on_click=lambda: [
-                clear_pdf_state(),
-            ]
-        )
 
 
 def initialize_session_state() -> None:
