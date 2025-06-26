@@ -1,3 +1,4 @@
+
 import streamlit as st
 import os
 import numpy as np
@@ -27,7 +28,7 @@ class AppConstants:
     EMBEDDING_MODEL = "models/text-embedding-004"
     DEFAULT_TEMPERATURE = 0.1
     MAX_OUTPUT_TOKENS = 1200
-    
+    NUM_CONTEXT_MESSAGES = 10
     # Search parameters
     DEFAULT_TOP_K = 4
     PROJECT_TOP_K = 6
@@ -50,6 +51,184 @@ class Language(Enum):
     """Supported languages"""
     ENGLISH = "en"
     TURKISH = "tr"
+
+
+# Translation system for system messages
+def get_system_text(language_code: str) -> Dict[str, str]:
+    """Get system texts based on language"""
+    if language_code == "tr":
+        return {
+            # Connection and setup errors
+            "connection_error": "❌ Chatbot'a bağlanırken sorun yaşıyoruz.",
+            "setup_failed": "❌ Chatbot kurulumu başarısız: {error}",
+            
+            # File and data errors
+            "cv_file_not_found": "❌ CV dosyası '{file_path}' bulunamadı.",
+            "json_empty": "❌ JSON dosyası boş veya okunamaz",
+            "json_parse_error": "JSON ayrıştırma hatası: {error}",
+            "cv_load_error": "CV yükleme hatası: {error}",
+            
+            # Cache messages
+            "cache_corrupted": "⚠️ Önbellek bozulmuş, embeddings yeniden oluşturuluyor...",
+            "cache_not_found": "🔄 Önbellek bulunamadı veya geçersiz, embeddings oluşturuluyor...",
+            "generating_embeddings": "{count} chunk için embeddings oluşturuluyor...",
+            "saving_to_cache": "Embeddings önbelleğe kaydediliyor...",
+            "cache_success": "✅ {count} chunk oluşturuldu ve önbelleğe kaydedildi!",
+            "cache_save_failed": "⚠️ Embeddings oluşturuldu ancak önbellekleme başarısız",
+            "embedding_generation_failed": "❌ Embeddings oluşturulamadı",
+            "cache_cleared": "🗑️ Önbellek başarıyla temizlendi!",
+            
+            # Cache warnings
+            "cache_info_save_failed": "Önbellek bilgisi kaydedilemedi: {error}",
+            "cache_load_failed": "Önbellekten yüklenemedi: {error}",
+            "cache_save_error": "Önbelleğe kaydedilemedi: {error}",
+            "cache_file_remove_failed": "Önbellek dosyası {file_path} silinemedi: {error}",
+            
+            # Processing messages
+            "processing_request": "İsteğiniz işleniyor...",
+            "sending_email": "E-posta gönderiliyor...",
+            
+            # PDF messages
+            "pdf_generated": "✅ PDF raporu başarıyla oluşturuldu! Aşağıdaki butona tıklayarak indirebilirsiniz.",
+            "pdf_title": "📄 PDF Raporu Hazır!",
+            "pdf_view": "👁️ PDF'yi Görüntüle",
+            "pdf_download": "💾 PDF İndir",
+            "pdf_mobile_tip": "📱 Mobilde PDF görüntüleme önerilir!",
+            "pdf_email": "📧 Email Gönder",
+            "pdf_clear": "🗑️ Temizle",
+            
+            # Email form
+            "email_form_title": "📧 PDF'i Email ile Alın",
+            "email_label": "Email Adresiniz:",
+            "email_placeholder": "ornek@email.com",
+            "email_send": "📧 PDF'i Gönder",
+            "email_cancel": "❌ İptal",
+            "email_success": "✅ PDF başarıyla gönderildi! Email'inizi kontrol edin.",
+            "email_error": "❌ Email gönderilirken hata oluştu.",
+            "email_invalid": "❌ Geçerli bir email adresi girin.",
+            "email_sending": "PDF gönderiliyor...",
+            
+            # Email configuration
+            "email_not_configured": "⚠️ Email işlevselliği yapılandırılmamış. Lütfen EMAIL_USER ve EMAIL_PASSWORD ortam değişkenlerini ayarlayın.",
+            "email_config_missing": "Email yapılandırması eksik",
+            
+            # Main app messages
+            "initializing_chatbot": "Chatbot başlatılıyor",
+            "configure_api_key": "Devam etmek için GEMINI_API_KEY'i yapılandırın",
+            
+            # Sidebar
+            "sidebar_title": "🔍 Meraklı biriymişsin :)",
+            "cache_status": "💾 Önbellek Durumu",
+            "cache_active": "✅ Aktif",
+            "cache_chunks": "Chunk'lar",
+            "cache_size": "Boyut",
+            "cache_cached": "Önbelleğe Alındı",
+            "cache_refresh": "🔄 Yenile",
+            "cache_refresh_help": "Embeddings'i yeniden oluştur",
+            "cache_clear_btn": "🗑️ Temizle",
+            "cache_clear_help": "Önbelleği temizle",
+            "cache_no_cache": "❌ Önbellek yok",
+            "view_chunks": "🔍 Oluşturulan Chunk'ları Görüntüle",
+            "chunks_title": "📋 Oluşturulan Chunk'lar",
+            "chunks_not_available": "Chunk'lar mevcut değil",
+            "chunks_loaded": "Yüklenen chunk'lar",
+            "cache_cleared_success": "Önbellek temizlendi!",
+            
+            # Error messages
+            "embedding_error": "Embedding hatası: {error}",
+            "error_generating_response": "Yanıt oluşturulurken hata: {error}. API yanıtı boş veya geçersiz olabilir. Lütfen birkaç saniye sonra tekrar deneyin.",
+            "embeddings_not_available": "Embeddings mevcut değil",
+            "query_process_failed": "Sorgu işlenemedi",
+            "no_response_generated": "Yanıt oluşturulamadı",
+            "api_not_configured": "Gemini API yapılandırılmamış"
+        }
+    else:  # English
+        return {
+            # Connection and setup errors
+            "connection_error": "❌ We are having trouble connecting to Chatbot.",
+            "setup_failed": "❌ Chatbot setup failed: {error}",
+            
+            # File and data errors
+            "cv_file_not_found": "❌ CV file '{file_path}' not found.",
+            "json_empty": "❌ JSON file is empty or unreadable",
+            "json_parse_error": "Error parsing JSON: {error}",
+            "cv_load_error": "Error loading CV: {error}",
+            
+            # Cache messages
+            "cache_corrupted": "⚠️ Cache corrupted, regenerating embeddings...",
+            "cache_not_found": "🔄 Cache not found or invalid, generating embeddings...",
+            "generating_embeddings": "Generating embeddings for {count} chunks...",
+            "saving_to_cache": "Saving embeddings to cache...",
+            "cache_success": "✅ Generated and cached {count} chunks!",
+            "cache_save_failed": "⚠️ Embeddings generated but caching failed",
+            "embedding_generation_failed": "❌ Failed to generate embeddings",
+            "cache_cleared": "🗑️ Cache cleared successfully!",
+            
+            # Cache warnings
+            "cache_info_save_failed": "Could not save cache info: {error}",
+            "cache_load_failed": "Could not load from cache: {error}",
+            "cache_save_error": "Could not save to cache: {error}",
+            "cache_file_remove_failed": "Could not remove cache file {file_path}: {error}",
+            
+            # Processing messages
+            "processing_request": "Processing your request...",
+            "sending_email": "Sending email...",
+            
+            # PDF messages
+            "pdf_generated": "✅ PDF report generated successfully! You can download it using the button below.",
+            "pdf_title": "📄 PDF Report Ready!",
+            "pdf_view": "👁️ View PDF",
+            "pdf_download": "💾 Download PDF",
+            "pdf_mobile_tip": "📱 PDF viewing recommended on mobile!",
+            "pdf_email": "📧 Email PDF",
+            "pdf_clear": "🗑️ Clear",
+            
+            # Email form
+            "email_form_title": "📧 Get PDF via Email",
+            "email_label": "Your Email:",
+            "email_placeholder": "example@email.com",
+            "email_send": "📧 Send PDF",
+            "email_cancel": "❌ Cancel",
+            "email_success": "✅ PDF sent successfully! Check your email.",
+            "email_error": "❌ Failed to send email.",
+            "email_invalid": "❌ Please enter a valid email address.",
+            "email_sending": "Sending PDF...",
+            
+            # Email configuration
+            "email_not_configured": "⚠️ Email functionality is not configured. Please set EMAIL_USER and EMAIL_PASSWORD environment variables.",
+            "email_config_missing": "Email configuration missing",
+            
+            # Main app messages
+            "initializing_chatbot": "Initializing Chatbot",
+            "configure_api_key": "Please configure GEMINI_API_KEY to continue",
+
+            
+            # Sidebar
+            "sidebar_title": "🔍 So you are a curious one :)",
+            "cache_status": "💾 Cache Status",
+            "cache_active": "✅ Active",
+            "cache_chunks": "Chunks",
+            "cache_size": "Size",
+            "cache_cached": "Cached",
+            "cache_refresh": "🔄 Refresh",
+            "cache_refresh_help": "Regenerate embeddings",
+            "cache_clear_btn": "🗑️ Clear",
+            "cache_clear_help": "Clear cache",
+            "cache_no_cache": "❌ No cache",
+            "view_chunks": "🔍 View Generated Chunks",
+            "chunks_title": "📋 Generated Chunks",
+            "chunks_not_available": "No chunks available",
+            "chunks_loaded": "Chunks loaded",
+            "cache_cleared_success": "Cache cleared!",
+            
+            # Error messages
+            "embedding_error": "Embedding error: {error}",
+            "error_generating_response": "Error generating response: {error}. The API response might have been empty or invalid. Please wait a moment and try again.",
+            "embeddings_not_available": "Embeddings not available",
+            "query_process_failed": "Could not process query",
+            "no_response_generated": "No response generated",
+            "api_not_configured": "Gemini API not configured"
+        }
 
 
 @dataclass
@@ -100,7 +279,7 @@ class EmbeddingCache:
         except Exception:
             return {}
     
-    def _save_cache_info(self, cv_file_path: str, cv_hash: str, chunks_count: int) -> None:
+    def _save_cache_info(self, cv_file_path: str, cv_hash: str, chunks_count: int, language: Language) -> None:
         """Save cache information"""
         cache_info = {
             "cv_file_path": cv_file_path,
@@ -114,7 +293,8 @@ class EmbeddingCache:
             with open(self.cache_info_path, 'w', encoding='utf-8') as f:
                 json.dump(cache_info, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            st.warning(f"Could not save cache info: {e}")
+            system_text = get_system_text(language.value)
+            st.warning(system_text["cache_info_save_failed"].format(error=e))
     
     def is_cache_valid(self, cv_file_path: str) -> bool:
         """Check if cached embeddings are still valid"""
@@ -146,7 +326,7 @@ class EmbeddingCache:
         
         return True
     
-    def load_from_cache(self) -> Tuple[Optional[List[str]], Optional[np.ndarray]]:
+    def load_from_cache(self, language: Language) -> Tuple[Optional[List[str]], Optional[np.ndarray]]:
         """Load chunks and embeddings from cache"""
         try:
             # Load chunks
@@ -167,10 +347,11 @@ class EmbeddingCache:
             return chunks, embeddings
             
         except Exception as e:
-            st.warning(f"Could not load from cache: {e}")
+            system_text = get_system_text(language.value)
+            st.warning(system_text["cache_load_failed"].format(error=e))
             return None, None
     
-    def save_to_cache(self, cv_file_path: str, chunks: List[str], embeddings: np.ndarray) -> bool:
+    def save_to_cache(self, cv_file_path: str, chunks: List[str], embeddings: np.ndarray, language: Language) -> bool:
         """Save chunks and embeddings to cache"""
         try:
             # Save chunks
@@ -183,22 +364,24 @@ class EmbeddingCache:
             
             # Save cache info
             cv_hash = self._get_file_hash(cv_file_path)
-            self._save_cache_info(cv_file_path, cv_hash, len(chunks))
+            self._save_cache_info(cv_file_path, cv_hash, len(chunks), language)
             
             return True
             
         except Exception as e:
-            st.error(f"Could not save to cache: {e}")
+            system_text = get_system_text(language.value)
+            st.error(system_text["cache_save_error"].format(error=e))
             return False
     
-    def clear_cache(self) -> None:
+    def clear_cache(self, language: Language) -> None:
         """Clear all cached files"""
         for file_path in [self.embeddings_path, self.chunks_path, self.cache_info_path]:
             try:
                 if os.path.exists(file_path):
                     os.remove(file_path)
             except Exception as e:
-                st.warning(f"Could not remove cache file {file_path}: {e}")
+                system_text = get_system_text(language.value)
+                st.warning(system_text["cache_file_remove_failed"].format(file_path=file_path, error=e))
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
@@ -473,9 +656,14 @@ class GeminiEmbeddingRAG:
                 self.configured = True
             else:
                 self.configured = False
-                st.error("❌ We are having trouble connecting to Chatbot.")
+                # Get language for error message
+                language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+                system_text = get_system_text(language.value)
+                st.error(system_text["connection_error"])
         except Exception as e:
-            st.error(f"❌ Chatbot setup failed: {e}")
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+            system_text = get_system_text(language.value)
+            st.error(system_text["setup_failed"].format(error=e))
             self.configured = False
     
     def get_embeddings(self, texts: List[str]) -> np.ndarray:
@@ -501,7 +689,9 @@ class GeminiEmbeddingRAG:
             return np.array(embeddings, dtype=np.float32)
             
         except Exception as e:
-            st.error(f"Embedding error: {e}")
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+            system_text = get_system_text(language.value)
+            st.error(system_text["embedding_error"].format(error=e))
             return np.array([])
     
     def json_to_chunks(self, data: Dict[str, Any]) -> List[str]:
@@ -589,7 +779,9 @@ class GeminiEmbeddingRAG:
         """Load CV from JSON and create embeddings with caching"""
         try:
             if not os.path.exists(self.json_path):
-                st.error(f"❌ CV file '{self.json_path}' not found.")
+                language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+                system_text = get_system_text(language.value)
+                st.error(system_text["cv_file_not_found"].format(file_path=self.json_path))
                 return
             
             # Load CV data
@@ -597,24 +789,29 @@ class GeminiEmbeddingRAG:
                 self.cv_data = json.load(file)
             
             if not self.cv_data:
-                st.error("❌ JSON file is empty or unreadable")
+                language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+                system_text = get_system_text(language.value)
+                st.error(system_text["json_empty"])
                 return
+            
+            # Detect language for messages
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
             
             # Check if cache is valid
             if self.cache.is_cache_valid(self.json_path):
-
-                cached_chunks, cached_embeddings = self.cache.load_from_cache()
+                cached_chunks, cached_embeddings = self.cache.load_from_cache(language)
                 
                 if cached_chunks is not None and cached_embeddings is not None:
                     self.cv_chunks = cached_chunks
                     self.cv_embeddings = cached_embeddings
-
                 else:
-                    st.warning("⚠️ Cache corrupted, regenerating embeddings...")
-                    self._generate_fresh_embeddings()
+                    system_text = get_system_text(language.value)
+                    st.warning(system_text["cache_corrupted"])
+                    self._generate_fresh_embeddings(language)
             else:
-                st.info("🔄 Cache not found or invalid, generating embeddings...")
-                self._generate_fresh_embeddings()
+                system_text = get_system_text(language.value)
+                st.info(system_text["cache_not_found"])
+                self._generate_fresh_embeddings(language)
             
             # Initialize job compatibility analyzer
             if self.cv_embeddings is not None and self.cv_embeddings.size > 0:
@@ -624,21 +821,28 @@ class GeminiEmbeddingRAG:
                     self
                 )
             else:
-                st.error("❌ Failed to load or generate embeddings")
+                system_text = get_system_text(language.value)
+                st.error(system_text["embedding_generation_failed"])
                 
         except json.JSONDecodeError as e:
-            st.error(f"Error parsing JSON: {e}")
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+            system_text = get_system_text(language.value)
+            st.error(system_text["json_parse_error"].format(error=e))
         except Exception as e:
-            st.error(f"Error loading CV: {e}")
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+            system_text = get_system_text(language.value)
+            st.error(system_text["cv_load_error"].format(error=e))
     
-    def _generate_fresh_embeddings(self) -> None:
+    def _generate_fresh_embeddings(self, language: Language) -> None:
         """Generate fresh embeddings and cache them"""
         try:
+            system_text = get_system_text(language.value)
+            
             # Convert to chunks
             self.cv_chunks = self.json_to_chunks(self.cv_data)
             
             # Generate embeddings with progress tracking
-            with st.spinner(f"Generating embeddings for {len(self.cv_chunks)} chunks..."):
+            with st.spinner(system_text["generating_embeddings"].format(count=len(self.cv_chunks))):
                 progress_bar = st.progress(0)
                 
                 # Generate embeddings in batches with progress updates
@@ -668,23 +872,26 @@ class GeminiEmbeddingRAG:
                     self.cv_embeddings = embeddings.astype(np.float32)
                     
                     # Save to cache
-                    with st.spinner("Saving embeddings to cache..."):
-                        if self.cache.save_to_cache(self.json_path, self.cv_chunks, self.cv_embeddings):
-                            st.success(f"✅ Generated and cached {len(self.cv_chunks)} chunks!")
+                    with st.spinner(system_text["saving_to_cache"]):
+                        if self.cache.save_to_cache(self.json_path, self.cv_chunks, self.cv_embeddings, language):
+                            st.success(system_text["cache_success"].format(count=len(self.cv_chunks)))
                         else:
-                            st.warning("⚠️ Embeddings generated but caching failed")
+                            st.warning(system_text["cache_save_failed"])
                 else:
-                    st.error("❌ Failed to generate embeddings")
+                    st.error(system_text["embedding_generation_failed"])
                     self.cv_embeddings = np.array([])
                     
         except Exception as e:
-            st.error(f"Error generating embeddings: {e}")
+            system_text = get_system_text(language.value)
+            st.error(system_text["embedding_generation_failed"])
             self.cv_embeddings = np.array([])
     
     def clear_cache(self) -> None:
         """Clear embedding cache"""
-        self.cache.clear_cache()
-        st.success("🗑️ Cache cleared successfully!")
+        language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+        self.cache.clear_cache(language)
+        system_text = get_system_text(language.value)
+        st.success(system_text["cache_cleared"])
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
@@ -723,12 +930,16 @@ class GeminiEmbeddingRAG:
     def search_similar_chunks(self, query: str, top_k: int = AppConstants.DEFAULT_TOP_K) -> List[Dict[str, Any]]:
         """Enhanced search with keyword matching and caching"""
         if not self.configured or self.cv_embeddings is None or self.cv_embeddings.size == 0:
-            return [{"text": "Embeddings not available", "similarity": 0.0, "index": -1}]
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+            system_text = get_system_text(language.value)
+            return [{"text": system_text["embeddings_not_available"], "similarity": 0.0, "index": -1}]
         
         # Get query embedding
         query_embedding = self.get_embeddings([query])
         if query_embedding.size == 0:
-            return [{"text": "Could not process query", "similarity": 0.0, "index": -1}]
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+            system_text = get_system_text(language.value)
+            return [{"text": system_text["query_process_failed"], "similarity": 0.0, "index": -1}]
         
         query_vec = query_embedding[0]
         query_norm = np.linalg.norm(query_vec)
@@ -759,17 +970,17 @@ class GeminiEmbeddingRAG:
     def _build_prompt(self, query: str, context: str, language: Language, recent_context: str) -> str:
         """Build appropriate prompt based on language"""
         if language == Language.TURKISH:
-            return f"""Siz Selman Dedeakayoğulları'nın AI portföy asistanısınız. Portföy web sitesine yerleştiriliyorsunuz. Ziyaretçiler size sorular soracak.
+            return f"""Sen Selman Dedeakayoğulları'nın AI portföy asistanısın. Portföy web sitesine yerleştiriliyorsun. Ziyaretçiler sana sorular soracak.
 
     Kurallar:
-    - SADECE TÜRKÇE yanıtlayın
-    - CV soruları için yalnızca sağlanan bağlamdan bilgi kullanın
-    - Profesyonel ve yardımsever olun
-    - Netlik ve okunabilirlik için markdown biçimlendirmesini kullanın
-    - Kullanıcı referans isterse, bunları görüntüleyin ve talep üzerine iletişim bilgilerinin mevcut olduğuna dair bir not ekleyin
-    - Projeler veya iş deneyimleri hakkında sorulduğunda, bağlamdan TÜM ilgili öğeleri listeleyin
-    - Proje soruları için, proje adlarını, kullanılan teknolojileri ve açıklamaları ekleyin. Özel olarak istenmediği sürece bağlantı vermeyin. "Agentic Portfolio Bot" hakkında konuşurken, siz olduğunuz için bununla ilgili bir şaka yapın. 
-    - Deneyim soruları için şirket adlarını, pozisyonları, süreleri ve açıklamaları ekleyin
+    - SADECE TÜRKÇE yanıtla
+    - CV soruları için yalnızca sağlanan bağlamdan bilgi kullan
+    - Profesyonel ve yardımsever ol
+    - Netlik ve okunabilirlik için markdown biçimlendirmesini kullan
+    - Kullanıcı referans isterse, bunları görüntüle ve talep üzerine iletişim bilgilerinin mevcut olduğuna dair bir not ekle
+    - Projeler veya iş deneyimleri hakkında sorulduğunda, bağlamdan TÜM ilgili öğeleri listele
+    - Proje soruları için, proje adlarını, kullanılan teknolojileri ve açıklamaları ekle. Özel olarak istenmediği sürece bağlantı verme. "Agentic Portfolio Bot" hakkında konuşurken, sen olduğun için bununla ilgili bir şaka yap
+    - Deneyim soruları için şirket adlarını, pozisyonları, süreleri ve açıklamaları ekle
 
     EMAIL KURALLARI - ÇOK ÖNEMLİ:
     - Birisi Selman ile iletişime geçmek istediğinde, prepare_email aracını KULLANMADAN ÖNCE şu bilgilerin TAMAMINI toplayın:
@@ -837,7 +1048,7 @@ class GeminiEmbeddingRAG:
             return ""
         
         # Get last 4 messages
-        recent_messages = conversation_history[-4:]
+        recent_messages = conversation_history[-AppConstants.NUM_CONTEXT_MESSAGES:]
         return "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent_messages])
     
     def _determine_top_k(self, query_type: QueryType) -> int:
@@ -889,7 +1100,9 @@ class GeminiEmbeddingRAG:
     def generate_response(self, query: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
         """Generate response with tool calling capability and Turkish support"""
         if not self.configured:
-            return "Gemini API not configured"
+            language = LanguageDetector.detect_from_messages(conversation_history or [])
+            system_text = get_system_text(language.value)
+            return system_text["api_not_configured"]
         
         # Detect language
         messages = (conversation_history or []) + [{"role": "user", "content": query}]
@@ -928,23 +1141,13 @@ class GeminiEmbeddingRAG:
                         return function_result
             
             # Return text response
-            return response.text if response.text else "No response generated"
+            system_text = get_system_text(language.value)
+            return response.text if response.text else system_text["no_response_generated"]
             
         except Exception as e:
             # Enhanced error handling with retry suggestion
-            if language == Language.TURKISH:
-                error_msg = (
-                    f"Yanıt oluşturulurken hata: {e}. "
-                    "API yanıtı boş veya geçersiz olabilir. "
-                    "Lütfen birkaç saniye sonra tekrar deneyin."
-                )
-            else:
-                error_msg = (
-                    f"Error generating response: {e}. "
-                    "The API response might have been empty or invalid. "
-                    "Please wait a moment and try again."
-                )
-            return error_msg
+            system_text = get_system_text(language.value)
+            return system_text["error_generating_response"].format(error=e)
 
 
 class ChatInterface:
@@ -1058,15 +1261,11 @@ class ChatInterface:
         
         # Detect language for UI
         language = LanguageDetector.detect_from_messages(st.session_state.messages)
-        ui_text = get_ui_text(language.value)
+        system_text = get_system_text(language.value)
         
         # Generate response
         with st.chat_message("assistant"):
-            spinner_msg = (
-                "İsteğiniz işleniyor..." 
-                if language == Language.TURKISH 
-                else "Processing your request..."
-            )
+            spinner_msg = system_text["processing_request"]
             
             with st.spinner(spinner_msg):
                 response = self.rag_system.generate_response(
@@ -1076,6 +1275,7 @@ class ChatInterface:
             
             # Handle special responses
             if response == "EMAIL_PREPARED_FOR_REVIEW":
+                ui_text = get_ui_text(language.value)
                 message = ui_text["email_prepared"]
                 st.write(message)
                 st.session_state.messages.append({
@@ -1090,11 +1290,7 @@ class ChatInterface:
                     )
             
             elif response == "PDF_GENERATED":
-                message = (
-                    "✅ PDF raporu başarıyla oluşturuldu! Aşağıdaki butona tıklayarak indirebilirsiniz."
-                    if language == Language.TURKISH
-                    else "✅ PDF report generated successfully! You can download it using the button below."
-                )
+                message = system_text["pdf_generated"]
                 st.write(message)
                 st.session_state.messages.append({
                     "role": "assistant", 
@@ -1111,8 +1307,12 @@ class ChatInterface:
 
 def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
     """Render sidebar with system information and cache controls"""
+    # Detect language for sidebar
+    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+    system_text = get_system_text(language.value)
+    
     with st.sidebar:
-        st.markdown("### 🔍 So you are a curious one :)")
+        st.markdown(f"### {system_text['sidebar_title']}")
         st.markdown("- **Embeddings**: text-embedding-004")
         st.markdown("- **Generation**: gemini-2.5-flash-lite-preview-06-17")
         st.markdown("- **Vector dims**: 768")
@@ -1122,47 +1322,47 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
         # Cache information
         if rag_system.configured:
             cache_stats = rag_system.get_cache_stats()
-            st.markdown("### 💾 Cache Status")
+            st.markdown(f"### {system_text['cache_status']}")
             
             if cache_stats["cache_info"]:
                 cache_info = cache_stats["cache_info"]
-                st.markdown(f"- **Status**: ✅ Active")
-                st.markdown(f"- **Chunks**: {cache_info.get('chunks_count', 'N/A')}")
-                st.markdown(f"- **Size**: {cache_stats['cache_size'] / 1024:.1f} KB")
-                st.markdown(f"- **Cached**: {cache_info.get('cached_at', 'N/A')[:16]}")
+                st.markdown(f"- **Status**: {system_text['cache_active']}")
+                st.markdown(f"- **{system_text['cache_chunks']}**: {cache_info.get('chunks_count', 'N/A')}")
+                st.markdown(f"- **{system_text['cache_size']}**: {cache_stats['cache_size'] / 1024:.1f} KB")
+                st.markdown(f"- **{system_text['cache_cached']}**: {cache_info.get('cached_at', 'N/A')[:16]}")
                 
                 # Cache actions
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("🔄 Refresh", help="Regenerate embeddings"):
+                    if st.button(system_text["cache_refresh"], help=system_text["cache_refresh_help"]):
                         rag_system.clear_cache()
                         rag_system.load_cv()
                         st.rerun()
                 
                 with col2:
-                    if st.button("🗑️ Clear", help="Clear cache"):
+                    if st.button(system_text["cache_clear_btn"], help=system_text["cache_clear_help"]):
                         rag_system.clear_cache()
-                        st.success("Cache cleared!")
+                        st.success(system_text["cache_cleared_success"])
                         st.rerun()
             else:
-                st.markdown("- **Status**: ❌ No cache")
+                st.markdown(f"- **Status**: {system_text['cache_no_cache']}")
         
         # Chunk viewer
-        if st.button("🔍 View Generated Chunks"):
+        if st.button(system_text["view_chunks"]):
             st.session_state.show_chunks = not st.session_state.get("show_chunks", False)
         
         if st.session_state.get("show_chunks", False):
-            st.markdown("### 📋 Generated Chunks")
+            st.markdown(f"### {system_text['chunks_title']}")
             if rag_system.configured and rag_system.cv_chunks:
                 for i, chunk in enumerate(rag_system.cv_chunks):
                     with st.expander(f"Chunk {i+1} ({len(chunk)} chars)"):
                         st.text(chunk)
             else:
-                st.warning("No chunks available")
+                st.warning(system_text["chunks_not_available"])
         
         # System status
         if rag_system.configured and rag_system.cv_chunks:
-            st.markdown(f"- **Chunks loaded**: {len(rag_system.cv_chunks)}")
+            st.markdown(f"- **{system_text['chunks_loaded']}**: {len(rag_system.cv_chunks)}")
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
@@ -1185,17 +1385,10 @@ def render_pdf_download() -> None:
     lang = LanguageDetector.detect_from_messages(
         st.session_state.get("messages", [])
     )
-    tr = lang == Language.TURKISH
-    title         = "📄 PDF Raporu Hazır!"          if tr else "📄 PDF Report Ready!"
-    view_text     = "👁️ PDF'yi Görüntüle"          if tr else "👁️ View PDF"
-    download_text = "💾 PDF İndir"                 if tr else "💾 Download PDF"
-    mobile_tip    = "📱 Mobilde PDF görüntüleme önerilir!" if tr \
-                    else "📱 PDF viewing recommended on mobile!"
-    email_text    = "📧 Email Gönder"              if tr else "📧 Email PDF"
-    clear_text    = "🗑️ Temizle"                   if tr else "🗑️ Clear"
-
+    system_text = get_system_text(lang.value)
+    
     # ---------------- 3) Başlık + indirme -----------------
-    st.download_button(download_text, pdf_bytes, file_name,
+    st.download_button(system_text["pdf_download"], pdf_bytes, file_name,
                        mime="application/pdf", use_container_width=True)
 
     # ------------------------------------------------------
@@ -1203,10 +1396,10 @@ def render_pdf_download() -> None:
     # ------------------------------------------------------
     col1, col2 = st.columns([1, 1], gap="small")
     with col1:
-        if st.button(email_text, use_container_width=True):
+        if st.button(system_text["pdf_email"], use_container_width=True):
             st.session_state.show_email_form = True
     with col2:
-        if st.button(clear_text, use_container_width=True):
+        if st.button(system_text["pdf_clear"], use_container_width=True):
             for k in ("pdf_data", "pdf_filename", "show_email_form"):
                 st.session_state.pop(k, None)
             st.rerun()
@@ -1221,34 +1414,17 @@ def render_pdf_download() -> None:
 def render_email_form_for_pdf(pdf_bytes: bytes, filename: str, language: Language):
     """Clean email form without JavaScript"""
     
-    if language == Language.TURKISH:
-        form_title = "📧 PDF'i Email ile Alın"
-        email_label = "Email Adresiniz:"
-        email_placeholder = "ornek@email.com"
-        send_text = "📧 PDF'i Gönder"
-        cancel_text = "❌ İptal"
-        success_msg = "✅ PDF başarıyla gönderildi! Email'inizi kontrol edin."
-        error_msg = "❌ Email gönderilirken hata oluştu."
-        invalid_email = "❌ Geçerli bir email adresi girin."
-    else:
-        form_title = "📧 Get PDF via Email"
-        email_label = "Your Email:"
-        email_placeholder = "example@email.com"
-        send_text = "📧 Send PDF"
-        cancel_text = "❌ Cancel"
-        success_msg = "✅ PDF sent successfully! Check your email."
-        error_msg = "❌ Failed to send email."
-        invalid_email = "❌ Please enter a valid email address."
+    system_text = get_system_text(language.value)
     
     # Email form
     st.markdown("---")
-    st.markdown(f"### {form_title}")
+    st.markdown(f"### {system_text['email_form_title']}")
     
     with st.form("pdf_email_form", clear_on_submit=True):
         user_email = st.text_input(
-            email_label,
-            placeholder=email_placeholder,
-            help="We'll send the PDF report to this email address"
+            system_text['email_label'],
+            placeholder=system_text['email_placeholder'],
+            help="We'll send the PDF report to this email address" if language == Language.ENGLISH else "PDF raporunu bu e-posta adresine göndereceğiz"
         )
         
         # Form submission buttons
@@ -1256,31 +1432,31 @@ def render_email_form_for_pdf(pdf_bytes: bytes, filename: str, language: Languag
         
         with col1:
             submitted = st.form_submit_button(
-                send_text, 
+                system_text['email_send'], 
                 use_container_width=True, 
                 type="primary"
             )
         
         with col2:
             cancelled = st.form_submit_button(
-                cancel_text, 
+                system_text['email_cancel'], 
                 use_container_width=True
             )
         
         # Handle form submission
         if submitted:
             if user_email and "@" in user_email and "." in user_email:
-                with st.spinner("Sending PDF..." if language == Language.ENGLISH else "PDF gönderiliyor..."):
+                with st.spinner(system_text['email_sending']):
                     success = send_pdf_via_email(pdf_bytes, filename, user_email, language)
                 
                 if success:
-                    st.success(success_msg)
+                    st.success(system_text['email_success'])
                     st.session_state.show_email_form = False
                     st.rerun()
                 else:
-                    st.error(error_msg)
+                    st.error(system_text['email_error'])
             else:
-                st.error(invalid_email)
+                st.error(system_text['email_invalid'])
         
         if cancelled:
             st.session_state.show_email_form = False
@@ -1301,7 +1477,8 @@ def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, la
         sender_password = st.secrets.get("GMAIL_APP_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD")
 
         if not sender_email or not sender_password:
-            st.error("Email configuration missing")
+            system_text = get_system_text(language.value)
+            st.error(system_text["email_config_missing"])
             return False
         
         # Create message
@@ -1410,22 +1587,27 @@ def main():
     
     # Initialize RAG system
     if "rag_system" not in st.session_state:
-        with st.spinner("Initializing Chatbot"):
+        # Detect language for initialization messages
+        language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+        system_text = get_system_text(language.value)
+        
+        with st.spinner(system_text["initializing_chatbot"]):
             st.session_state.rag_system = GeminiEmbeddingRAG()
     
     rag_system = st.session_state.rag_system
     
     # Check configuration
     if not rag_system.configured:
-        st.error("Please configure GEMINI_API_KEY to continue")
+        language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+        system_text = get_system_text(language.value)
+        st.error(system_text["configure_api_key"])
         st.stop()
     
     # Check email configuration
     if not rag_system.email_tool.email_user or not rag_system.email_tool.email_password:
-        st.warning(
-            "⚠️ Email functionality is not configured. "
-            "Please set EMAIL_USER and EMAIL_PASSWORD environment variables."
-        )
+        language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+        system_text = get_system_text(language.value)
+        st.warning(system_text["email_not_configured"])
     
     # Initialize chat interface
     chat_interface = ChatInterface(rag_system)
@@ -1437,7 +1619,9 @@ def main():
     chat_interface.display_messages()
     
     # Chat input
-    if prompt := st.chat_input("Start chatting... "):
+
+    
+    if prompt := st.chat_input("💬"):
         chat_interface.process_user_input(prompt)
     
     # PDF download button
