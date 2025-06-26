@@ -1,6 +1,8 @@
 import streamlit as st
 import os
 import numpy as np
+import pickle
+import hashlib
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
@@ -36,6 +38,12 @@ class AppConstants:
     
     # Chunk boost scores
     KEYWORD_BOOST_SCORE = 0.2
+    
+    # Cache settings
+    CACHE_DIR = ".cache"
+    EMBEDDINGS_CACHE_FILE = "cv_embeddings.pkl"
+    CHUNKS_CACHE_FILE = "cv_chunks.pkl"
+    CACHE_INFO_FILE = "cache_info.json"
 
 
 class Language(Enum):
@@ -53,6 +61,159 @@ class QueryType:
     is_experience_query: bool = False
     is_education_query: bool = False
     is_contact_query: bool = False
+
+
+class EmbeddingCache:
+    """Handle embedding caching operations"""
+    
+    def __init__(self, cache_dir: str = AppConstants.CACHE_DIR):
+        self.cache_dir = cache_dir
+        self.embeddings_path = os.path.join(cache_dir, AppConstants.EMBEDDINGS_CACHE_FILE)
+        self.chunks_path = os.path.join(cache_dir, AppConstants.CHUNKS_CACHE_FILE)
+        self.cache_info_path = os.path.join(cache_dir, AppConstants.CACHE_INFO_FILE)
+        
+        # Create cache directory if it doesn't exist
+        os.makedirs(cache_dir, exist_ok=True)
+    
+    def _get_file_hash(self, file_path: str) -> str:
+        """Get MD5 hash of a file"""
+        if not os.path.exists(file_path):
+            return ""
+        
+        hash_md5 = hashlib.md5()
+        try:
+            with open(file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+            return hash_md5.hexdigest()
+        except Exception:
+            return ""
+    
+    def _get_cache_info(self) -> Dict[str, Any]:
+        """Get cache information"""
+        if not os.path.exists(self.cache_info_path):
+            return {}
+        
+        try:
+            with open(self.cache_info_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    
+    def _save_cache_info(self, cv_file_path: str, cv_hash: str, chunks_count: int) -> None:
+        """Save cache information"""
+        cache_info = {
+            "cv_file_path": cv_file_path,
+            "cv_file_hash": cv_hash,
+            "chunks_count": chunks_count,
+            "cached_at": str(np.datetime64('now')),
+            "embedding_model": AppConstants.EMBEDDING_MODEL
+        }
+        
+        try:
+            with open(self.cache_info_path, 'w', encoding='utf-8') as f:
+                json.dump(cache_info, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            st.warning(f"Could not save cache info: {e}")
+    
+    def is_cache_valid(self, cv_file_path: str) -> bool:
+        """Check if cached embeddings are still valid"""
+        # Check if all cache files exist
+        if not all(os.path.exists(path) for path in [
+            self.embeddings_path, 
+            self.chunks_path, 
+            self.cache_info_path
+        ]):
+            return False
+        
+        # Check cache info
+        cache_info = self._get_cache_info()
+        if not cache_info:
+            return False
+        
+        # Check if CV file path matches
+        if cache_info.get("cv_file_path") != cv_file_path:
+            return False
+        
+        # Check if CV file hash matches (to detect changes)
+        current_hash = self._get_file_hash(cv_file_path)
+        if cache_info.get("cv_file_hash") != current_hash:
+            return False
+        
+        # Check if embedding model matches
+        if cache_info.get("embedding_model") != AppConstants.EMBEDDING_MODEL:
+            return False
+        
+        return True
+    
+    def load_from_cache(self) -> Tuple[Optional[List[str]], Optional[np.ndarray]]:
+        """Load chunks and embeddings from cache"""
+        try:
+            # Load chunks
+            with open(self.chunks_path, 'rb') as f:
+                chunks = pickle.load(f)
+            
+            # Load embeddings
+            with open(self.embeddings_path, 'rb') as f:
+                embeddings = pickle.load(f)
+            
+            # Validate data
+            if not isinstance(chunks, list) or not isinstance(embeddings, np.ndarray):
+                return None, None
+            
+            if len(chunks) != len(embeddings):
+                return None, None
+            
+            return chunks, embeddings
+            
+        except Exception as e:
+            st.warning(f"Could not load from cache: {e}")
+            return None, None
+    
+    def save_to_cache(self, cv_file_path: str, chunks: List[str], embeddings: np.ndarray) -> bool:
+        """Save chunks and embeddings to cache"""
+        try:
+            # Save chunks
+            with open(self.chunks_path, 'wb') as f:
+                pickle.dump(chunks, f, protocol=pickle.HIGHEST_PROTOCOL)
+            
+            # Save embeddings
+            with open(self.embeddings_path, 'wb') as f:
+                pickle.dump(embeddings, f, protocol=pickle.HIGHEST_PROTOCOL)
+            
+            # Save cache info
+            cv_hash = self._get_file_hash(cv_file_path)
+            self._save_cache_info(cv_file_path, cv_hash, len(chunks))
+            
+            return True
+            
+        except Exception as e:
+            st.error(f"Could not save to cache: {e}")
+            return False
+    
+    def clear_cache(self) -> None:
+        """Clear all cached files"""
+        for file_path in [self.embeddings_path, self.chunks_path, self.cache_info_path]:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                st.warning(f"Could not remove cache file {file_path}: {e}")
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics"""
+        stats = {
+            "cache_exists": self.is_cache_valid("") if os.path.exists(self.cache_info_path) else False,
+            "cache_info": self._get_cache_info(),
+            "cache_size": 0
+        }
+        
+        # Calculate cache size
+        for file_path in [self.embeddings_path, self.chunks_path, self.cache_info_path]:
+            if os.path.exists(file_path):
+                stats["cache_size"] += os.path.getsize(file_path)
+        
+        return stats
 
 
 class LanguageDetector:
@@ -276,7 +437,7 @@ Keywords: project, proje, {project.get('technology', '').lower()}, {project.get(
 
 
 class GeminiEmbeddingRAG:
-    """Enhanced RAG with tool calling for email using JSON data"""
+    """Enhanced RAG with tool calling for email using JSON data and embedding caching"""
     
     def __init__(self, json_path: str = "selman-cv.json"):
         self.json_path = json_path
@@ -284,6 +445,9 @@ class GeminiEmbeddingRAG:
         self.cv_chunks: List[str] = []
         self.cv_embeddings: Optional[np.ndarray] = None
         self.configured = False
+        
+        # Initialize cache
+        self.cache = EmbeddingCache()
         
         # Initialize tools
         self.email_tool = EmailTool()
@@ -422,12 +586,13 @@ class GeminiEmbeddingRAG:
         return chunks
     
     def load_cv(self) -> None:
-        """Load CV from JSON and create embeddings"""
+        """Load CV from JSON and create embeddings with caching"""
         try:
             if not os.path.exists(self.json_path):
                 st.error(f"❌ CV file '{self.json_path}' not found.")
                 return
             
+            # Load CV data
             with open(self.json_path, 'r', encoding='utf-8') as file:
                 self.cv_data = json.load(file)
             
@@ -435,27 +600,95 @@ class GeminiEmbeddingRAG:
                 st.error("❌ JSON file is empty or unreadable")
                 return
             
-            # Convert to chunks
-            self.cv_chunks = self.json_to_chunks(self.cv_data)
+            # Check if cache is valid
+            if self.cache.is_cache_valid(self.json_path):
+
+                cached_chunks, cached_embeddings = self.cache.load_from_cache()
+                
+                if cached_chunks is not None and cached_embeddings is not None:
+                    self.cv_chunks = cached_chunks
+                    self.cv_embeddings = cached_embeddings
+
+                else:
+                    st.warning("⚠️ Cache corrupted, regenerating embeddings...")
+                    self._generate_fresh_embeddings()
+            else:
+                st.info("🔄 Cache not found or invalid, generating embeddings...")
+                self._generate_fresh_embeddings()
             
-            # Generate embeddings
-            with st.spinner(f"Generating embeddings for {len(self.cv_chunks)} chunks..."):
-                self.cv_embeddings = self.get_embeddings(self.cv_chunks)
-            
-            if self.cv_embeddings.size > 0:
-                # Initialize job compatibility analyzer
+            # Initialize job compatibility analyzer
+            if self.cv_embeddings is not None and self.cv_embeddings.size > 0:
                 self.tool_definitions.initialize_job_analyzer(
                     self.client, 
                     self.cv_data, 
                     self
                 )
             else:
-                st.error("❌ Failed to generate embeddings")
+                st.error("❌ Failed to load or generate embeddings")
                 
         except json.JSONDecodeError as e:
             st.error(f"Error parsing JSON: {e}")
         except Exception as e:
             st.error(f"Error loading CV: {e}")
+    
+    def _generate_fresh_embeddings(self) -> None:
+        """Generate fresh embeddings and cache them"""
+        try:
+            # Convert to chunks
+            self.cv_chunks = self.json_to_chunks(self.cv_data)
+            
+            # Generate embeddings with progress tracking
+            with st.spinner(f"Generating embeddings for {len(self.cv_chunks)} chunks..."):
+                progress_bar = st.progress(0)
+                
+                # Generate embeddings in batches with progress updates
+                embeddings = []
+                batch_size = 5
+                total_batches = (len(self.cv_chunks) + batch_size - 1) // batch_size
+                
+                for i, batch_start in enumerate(range(0, len(self.cv_chunks), batch_size)):
+                    batch_end = min(batch_start + batch_size, len(self.cv_chunks))
+                    batch_texts = self.cv_chunks[batch_start:batch_end]
+                    
+                    # Get embeddings for this batch
+                    batch_embeddings = self.get_embeddings(batch_texts)
+                    if batch_embeddings.size > 0:
+                        if len(embeddings) == 0:
+                            embeddings = batch_embeddings
+                        else:
+                            embeddings = np.vstack([embeddings, batch_embeddings])
+                    
+                    # Update progress
+                    progress = (i + 1) / total_batches
+                    progress_bar.progress(progress)
+                
+                progress_bar.empty()
+                
+                if embeddings is not None and len(embeddings) > 0:
+                    self.cv_embeddings = embeddings.astype(np.float32)
+                    
+                    # Save to cache
+                    with st.spinner("Saving embeddings to cache..."):
+                        if self.cache.save_to_cache(self.json_path, self.cv_chunks, self.cv_embeddings):
+                            st.success(f"✅ Generated and cached {len(self.cv_chunks)} chunks!")
+                        else:
+                            st.warning("⚠️ Embeddings generated but caching failed")
+                else:
+                    st.error("❌ Failed to generate embeddings")
+                    self.cv_embeddings = np.array([])
+                    
+        except Exception as e:
+            st.error(f"Error generating embeddings: {e}")
+            self.cv_embeddings = np.array([])
+    
+    def clear_cache(self) -> None:
+        """Clear embedding cache"""
+        self.cache.clear_cache()
+        st.success("🗑️ Cache cleared successfully!")
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics"""
+        return self.cache.get_cache_stats()
     
     def _calculate_keyword_boost(self, query: str, chunk: str) -> float:
         """Calculate keyword boost score for a chunk"""
@@ -698,7 +931,7 @@ class GeminiEmbeddingRAG:
             return response.text if response.text else "No response generated"
             
         except Exception as e:
-    # Kullanıcıya yeniden deneme tavsiyesi de ekle
+            # Enhanced error handling with retry suggestion
             if language == Language.TURKISH:
                 error_msg = (
                     f"Yanıt oluşturulurken hata: {e}. "
@@ -877,7 +1110,7 @@ class ChatInterface:
 
 
 def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
-    """Render sidebar with system information"""
+    """Render sidebar with system information and cache controls"""
     with st.sidebar:
         st.markdown("### 🔍 So you are a curious one :)")
         st.markdown("- **Embeddings**: text-embedding-004")
@@ -886,6 +1119,35 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
         st.markdown("- **Search**: Cosine similarity")
         st.markdown("- **Data Source**: JSON")
         
+        # Cache information
+        if rag_system.configured:
+            cache_stats = rag_system.get_cache_stats()
+            st.markdown("### 💾 Cache Status")
+            
+            if cache_stats["cache_info"]:
+                cache_info = cache_stats["cache_info"]
+                st.markdown(f"- **Status**: ✅ Active")
+                st.markdown(f"- **Chunks**: {cache_info.get('chunks_count', 'N/A')}")
+                st.markdown(f"- **Size**: {cache_stats['cache_size'] / 1024:.1f} KB")
+                st.markdown(f"- **Cached**: {cache_info.get('cached_at', 'N/A')[:16]}")
+                
+                # Cache actions
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🔄 Refresh", help="Regenerate embeddings"):
+                        rag_system.clear_cache()
+                        rag_system.load_cv()
+                        st.rerun()
+                
+                with col2:
+                    if st.button("🗑️ Clear", help="Clear cache"):
+                        rag_system.clear_cache()
+                        st.success("Cache cleared!")
+                        st.rerun()
+            else:
+                st.markdown("- **Status**: ❌ No cache")
+        
+        # Chunk viewer
         if st.button("🔍 View Generated Chunks"):
             st.session_state.show_chunks = not st.session_state.get("show_chunks", False)
         
@@ -898,19 +1160,17 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             else:
                 st.warning("No chunks available")
         
+        # System status
         if rag_system.configured and rag_system.cv_chunks:
             st.markdown(f"- **Chunks loaded**: {len(rag_system.cv_chunks)}")
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
 
-
 import streamlit as st
 import base64, uuid
 import streamlit.components.v1 as components
-# ---------------------------------------------------------
-#  render_pdf_download   (BLOB kullanan yeni sürüm)
-# ---------------------------------------------------------
+
 def render_pdf_download() -> None:
     # PDF henüz yoksa çık
     if not {"pdf_data", "pdf_filename"} <= st.session_state.keys():
@@ -938,9 +1198,6 @@ def render_pdf_download() -> None:
     st.download_button(download_text, pdf_bytes, file_name,
                        mime="application/pdf", use_container_width=True)
 
-
-
-    
     # ------------------------------------------------------
     # 5)  E-posta ve Temizle butonları - Responsive
     # ------------------------------------------------------
@@ -1087,7 +1344,7 @@ def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, la
 
             If you have any questions, feel free to reach out.
 
-            If you did not request this email, it’s possible that your address was entered by mistake. In that case, please disregard this message.
+            If you did not request this email, it's possible that your address was entered by mistake. In that case, please disregard this message.
 
             Best regards,
 
@@ -1123,7 +1380,6 @@ def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, la
         return False
 
 
-
 def initialize_session_state() -> None:
     """Initialize session state variables"""
     if "messages" not in st.session_state:
@@ -1132,7 +1388,6 @@ def initialize_session_state() -> None:
             "content": (
                 "Hello! I'm here to answer questions about Selman. What would you like to know?\n\n "
                 "Merhaba! Selman hakkında sorularınızı yanıtlayabilirim. Ne öğrenmek istersiniz?"
-
             )
         }]
 
@@ -1182,8 +1437,7 @@ def main():
     chat_interface.display_messages()
     
     # Chat input
-    if prompt := st.chat_input(
-        "Start chatting... "):
+    if prompt := st.chat_input("Start chatting... "):
         chat_interface.process_user_input(prompt)
     
     # PDF download button
