@@ -895,45 +895,149 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
+import base64
 
 def render_pdf_download() -> None:
-    """Enhanced PDF download with mobile support"""
-    if "pdf_data" in st.session_state and "pdf_filename" in st.session_state:
-        try:
-            # PDF size kontrolü
-            pdf_size = len(st.session_state.pdf_data)
-            size_mb = pdf_size / (1024 * 1024)
+    """Responsive PDF download with matching styled buttons"""
+    if "pdf_data" not in st.session_state or "pdf_filename" not in st.session_state:
+        return
+
+    # Language detection for UI text
+    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+    
+    # Prepare data
+    pdf_bytes = st.session_state.pdf_data
+    file_name = st.session_state.pdf_filename
+    pdf_b64 = base64.b64encode(pdf_bytes).decode()
+    
+    # UI text based on language
+    if language == Language.TURKISH:
+        download_text = "📄 PDF Raporu İndir"
+        clear_text = "🗑️ Temizle"
+    else:
+        download_text = "📄 Download PDF Report" 
+        clear_text = "🗑️ Clear"
+
+    # Custom CSS for matching buttons
+    st.markdown("""
+        <style>
+        .pdf-button-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .pdf-button {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            min-width: 200px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .pdf-button.download {
+            background: #FF4B4B;
+            color: white !important;
+        }
+        
+        .pdf-button.download:hover {
+            background: #FF6B6B;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255,75,75,0.3);
+        }
+        
+        .pdf-button.clear {
+            background: #6c757d;
+            color: white !important;
+        }
+        
+        .pdf-button.clear:hover {
+            background: #545b62;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(108,117,125,0.3);
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .pdf-button-container {
+                flex-direction: column;
+                gap: 10px;
+            }
             
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                success = st.download_button(
-                    label=f"📄 Download PDF Report ({size_mb:.1f} MB)",
-                    data=st.session_state.pdf_data,
-                    file_name=st.session_state.pdf_filename,
-                    mime="application/pdf",
-                    key="download_pdf",
-                    help="Click to download the compatibility report as PDF"
-                )
-                
-                if success:
-                    st.success("✅ PDF download started!")
-                    # Clear after successful download
-                    st.session_state.pop("pdf_data", None)
-                    st.session_state.pop("pdf_filename", None)
-                    st.rerun()
-            
-            with col2:
-                if st.button("🗑️ Clear", help="Clear PDF from memory"):
-                    st.session_state.pop("pdf_data", None)
-                    st.session_state.pop("pdf_filename", None)
-                    st.rerun()
-                    
-        except Exception as e:
-            st.error(f"PDF download error: {e}")
-            # Clear corrupted data
+            .pdf-button {
+                width: 100%;
+                min-width: auto;
+                font-size: 14px;
+                padding: 10px 20px;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+    # Alternative approach - use two columns with HTML styled buttons
+    # This approach is more reliable for the clear functionality
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+            <a href="data:application/pdf;base64,{pdf_b64}" 
+               download="{file_name}"
+               class="pdf-button download"
+               style="display: block; text-align: center;">
+                {download_text}
+            </a>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        # Use Streamlit button but style it to match
+        if st.button(clear_text, key="clear_download", use_container_width=True):
             st.session_state.pop("pdf_data", None)
             st.session_state.pop("pdf_filename", None)
+            st.rerun()
+
+    # Additional CSS to style the Streamlit button to match
+    st.markdown("""
+        <style>
+        /* Style the Streamlit button to match our custom button */
+        button[kind="secondary"] {
+            background: #6c757d !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            font-size: 16px !important;
+            padding: 12px 24px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+            height: auto !important;
+        }
+        
+        button[kind="secondary"]:hover {
+            background: #545b62 !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(108,117,125,0.3) !important;
+        }
+        
+        @media (max-width: 768px) {
+            button[kind="secondary"] {
+                font-size: 14px !important;
+                padding: 10px 20px !important;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
 
 def initialize_session_state() -> None:
     """Initialize session state variables"""
