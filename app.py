@@ -1173,12 +1173,8 @@ def initialize_session_state() -> None:
             "role": "assistant",
             "content": (
                 "Hello! I'm here to answer questions about Selman. What would you like to know? "
-                "I can also help you get in touch with him directly if needed! 📧\n\n"
-                "I can also analyze job compatibility if you have a job description you'd like me "
-                "to review against Selman's profile! 💼\n\n"
-                "Merhaba! Selman hakkında sorularınızı yanıtlayabilirim. "
-                "Onunla doğrudan iletişime geçmenize de yardımcı olabilirim! 📧\n\n"
-                "Ayrıca bir iş ilanınız varsa, Selman'ın profiliyle uyumluluğunu analiz edebilirim! 💼"
+                "Merhaba! Selman hakkında sorularınızı yanıtlayabilirim. Ne öğrenmek istersiniz?"
+
             )
         }]
 
