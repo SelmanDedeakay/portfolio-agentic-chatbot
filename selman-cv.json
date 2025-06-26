@@ -115,7 +115,7 @@
     {
       "name": "Gendiary: New-Gen Social Media via Stable Diffusion",
       "technology": "Stable Diffusion,Computer Vision, Prompt Engineering, API Development",
-      "description": "A Social Media Application using Stable Diffusion for Creating Content, for Software Engineering Course Project"
+      "description": "Developed an AI-powered diary app that generates personalized, context-aware images from user photos using Stable Diffusion and PyTorch, delivered via a Flask REST API with dynamic prompt management and GPU optimization."
     },
     {
       "name": "Image Captioning Project",

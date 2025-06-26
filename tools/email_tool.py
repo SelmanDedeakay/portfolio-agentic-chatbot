@@ -15,7 +15,7 @@ class EmailTool:
         self.email_user = st.secrets.get("GMAIL_EMAIL", os.getenv("GMAIL_EMAIL"))
         self.email_password = st.secrets.get("GMAIL_APP_PASSWORD", os.getenv("GMAIL_APP_PASSWORD"))
         self.recipient_email = st.secrets.get("RECIPIENT_EMAIL", os.getenv("RECIPIENT_EMAIL"))
-        self.linkedin_url = "https://www.linkedin.com/in/selman-dedeakayo%C4%9Fullar%C4%B1-443b431a7/"
+        self.linkedin_url = "https://www.linkedin.com/in/selmandedeakayoğulları"
             
     def _send_confirmation_email(self, sender_email: str, sender_name: str, language: str = "en"):
         """Send confirmation email to the sender"""
