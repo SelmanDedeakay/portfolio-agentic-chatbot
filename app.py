@@ -938,57 +938,8 @@ def render_pdf_download() -> None:
     st.download_button(download_text, pdf_bytes, file_name,
                        mime="application/pdf", use_container_width=True)
 
-    # ------------------------------------------------------
-    # 4)  BLOB ►  Yeni Sekme + IFRAME Önizleme
-    # ------------------------------------------------------
-    uid = uuid.uuid4().hex
-    html = f"""
-    <style>
-      .btn {{
-        padding: 12px 22px;
-        background: #10b981;
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: .2s;
-        width: 100%;
-        font-size: 16px;
-        display: block;
-        margin: 0 auto;
-      }}
-      .btn:hover {{
-        opacity: .85;
-        transform: translateY(-2px);
-      }}
-      
-      @media (max-width: 768px) {{
-        .btn {{
-          padding: 14px 20px;
-          font-size: 14px;
-        }}
-      }}
-    </style>
 
-    <button id="view_{uid}" class="btn">{view_text}</button>
 
-    <script>
-      const b64 = "{b64_pdf}";
-      const bin = atob(b64);
-      const len = bin.length;
-      const bytes = new Uint8Array(len);
-      for (let i=0;i<len;i++) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], {{type:"application/pdf"}});
-      const url  = URL.createObjectURL(blob);
-
-      // buton → yeni sekme
-      document.getElementById("view_{uid}").onclick = () => window.open(url,"_blank");
-    </script>
-    """
-
-    # st.markdown JS'i keser → components.html kullan!
-    components.html(html, height=100, scrolling=False)
     
     # ------------------------------------------------------
     # 5)  E-posta ve Temizle butonları - Responsive
