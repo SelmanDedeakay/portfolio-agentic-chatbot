@@ -899,7 +899,7 @@ def render_pdf_download() -> None:
     """Simple and reliable PDF download without custom JavaScript"""
     if "pdf_data" not in st.session_state or "pdf_filename" not in st.session_state:
         return
-    
+
     language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
     pdf_bytes = st.session_state.pdf_data
     file_name = st.session_state.pdf_filename
@@ -1086,9 +1086,9 @@ def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, la
         from email import encoders
         
         # Get email credentials
-        sender_email = st.secrets.get("EMAIL_USER") or os.getenv("EMAIL_USER")
-        sender_password = st.secrets.get("EMAIL_PASSWORD") or os.getenv("EMAIL_PASSWORD")
-        
+        sender_email = st.secrets.get("GMAIL_EMAIL") or os.getenv("GMAIL_EMAIL")
+        sender_password = st.secrets.get("GMAIL_APP_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD")
+
         if not sender_email or not sender_password:
             st.error("Email configuration missing")
             return False
