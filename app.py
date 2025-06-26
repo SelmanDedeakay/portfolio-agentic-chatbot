@@ -967,6 +967,8 @@ class GeminiEmbeddingRAG:
         similarities.sort(key=lambda x: x["similarity"], reverse=True)
         return similarities[:top_k]
     
+# Ana kodda _build_prompt fonksiyonunu güncelleyin:
+
     def _build_prompt(self, query: str, context: str, language: Language, recent_context: str) -> str:
         """Build appropriate prompt based on language"""
         if language == Language.TURKISH:
@@ -991,9 +993,16 @@ class GeminiEmbeddingRAG:
     - Örnek: "E-posta gönderebilmem için adınızı ve e-posta adresinizi öğrenebilir miyim?"
     - TÜM bilgiler toplandıktan SONRA prepare_email aracını kullanın
 
+    İŞ UYUMLULUK ANALİZİ KURALLARI - ÇOK ÖNEMLİ:
+    - Birisi bir iş tanımı sağladığında veya belirli bir rol için uygunluk hakkında soru sorduğunda, analyze_job_compatibility aracını kullanmadan ÖNCE rapor dilini sor
+    - MUTLAKA şu soruyu sor: "Raporu Türkçe mi İngilizce mi istersiniz?"
+    - Kullanıcı cevapladıktan sonra analyze_job_compatibility aracını uygun dil parametresi ile çağır:
+    - Türkçe için: report_language: "tr"
+    - İngilizce için: report_language: "en"
+    - Kullanıcı dil tercihi belirtmezse, Türkçe olarak varsay
+
     DİĞER ARAÇLAR:
     - Birisi Selman'ın son gönderileri, makaleleri, Medium içeriği, LinkedIn etkinliği veya sosyal medyası hakkında soru sorduğunda get_recent_posts aracını kullanın
-    - Birisi bir iş tanımı sağladığında veya belirli bir rol için uygunluk hakkında soru sorduğunda analyze_job_compatibility aracını kullanın
     - Kullanıcı PDF istediğinde, indirdiğinde veya iş uyumluluk raporunu kaydetmek istediğinde generate_compatibility_pdf aracını kullanın
 
     Son Konuşma Bağlamı:
@@ -1026,9 +1035,16 @@ class GeminiEmbeddingRAG:
     - Example: "I'd be happy to help you contact Selman. Could you please provide your full name and email address?"
     - ONLY use prepare_email tool after ALL information is collected
 
+    JOB COMPATIBILITY ANALYSIS RULES - VERY IMPORTANT:
+    - When someone provides a job description or asks about fit for a specific role, BEFORE using analyze_job_compatibility tool, ask for report language preference
+    - ALWAYS ask: "Would you like the report in English or Turkish?"
+    - After user responds, call analyze_job_compatibility tool with appropriate language parameter:
+    - For English: report_language: "en"
+    - For Turkish: report_language: "tr"
+    - If user doesn't specify language preference, default to English
+
     OTHER TOOLS:
     - Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content, LinkedIn activity, or social media
-    - Use analyze_job_compatibility tool when someone provides a job description or asks about fit for a specific role
     - Use generate_compatibility_pdf tool when user asks for PDF, download, or wants to save the job compatibility report
 
     Recent Conversation Context:
@@ -1038,7 +1054,6 @@ class GeminiEmbeddingRAG:
     {context}
 
     User Question: {query}
-
 
     Response:"""
     

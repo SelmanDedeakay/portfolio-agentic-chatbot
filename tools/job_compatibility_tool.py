@@ -15,8 +15,8 @@ class AnalysisConstants:
     DEFAULT_TEMPERATURE = 0.1
     ANALYSIS_TEMPERATURE = 0.2
     REPORT_TEMPERATURE = 0.3
-    MAX_OUTPUT_TOKENS = 12000  # Artırıldı
-    STOP_SEQUENCES = []  # Stop sequences kaldırıldı
+    MAX_OUTPUT_TOKENS = 12000
+    STOP_SEQUENCES = []
     MAX_EDUCATION_CHUNKS = 4
     EDUCATION_SEARCH_BOOST = 0.3
     # Search limits
@@ -28,7 +28,7 @@ class AnalysisConstants:
     
     # Report generation
     MAX_RETRIES = 3
-    MIN_REPORT_LENGTH = 500  # Minimum rapor uzunluğu
+    MIN_REPORT_LENGTH = 500
 
 
 @dataclass
@@ -276,6 +276,7 @@ Important: Return ONLY valid JSON without any markdown formatting or additional 
                 continue
         
         return unique_chunks
+    
     def _is_education_chunk(self, chunk_text: str) -> bool:
         """
         YENI FONKSIYON: Chunk'ın eğitim içeriği olup olmadığını kontrol et.
@@ -305,6 +306,7 @@ Important: Return ONLY valid JSON without any markdown formatting or additional 
                             if re.search(pattern, chunk_lower))
         
         return indicator_count >= 2 or pattern_matches >= 1
+
     def _get_education_specific_chunks(self, job_requirements: JobRequirements) -> List[str]:
         """
         YENI FONKSIYON: Eğitim-spesifik chunk'ları hedefli şekilde arama.
@@ -356,6 +358,7 @@ Important: Return ONLY valid JSON without any markdown formatting or additional 
                 continue
         
         return education_chunks
+
     def get_relevant_cv_context(self, job_requirements: JobRequirements) -> str:
         """
         Enhanced CV context retrieval with specific education chunk prioritization.
@@ -639,12 +642,13 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
             
         return base_analysis
     
-    def _validate_report_completeness(self, report_text: str) -> bool:
+    def _validate_report_completeness(self, report_text: str, language: str) -> bool:
         """
-        Validate if the generated report is complete.
+        Validate if the generated report is complete based on language.
         
         Args:
             report_text: Generated report text
+            language: Report language
             
         Returns:
             True if report appears complete
@@ -652,11 +656,17 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
         if not report_text or len(report_text.strip()) < AnalysisConstants.MIN_REPORT_LENGTH:
             return False
         
-        # Check for required sections
-        required_sections = [
-            "Executive Summary", "Technical Skills", "Experience", 
-            "Education", "Recommendation", "Strengths", "Özet", "Beceriler", "Deneyim", "Eğitim", "Öneri", "Güçlü"
-        ]
+        # Check for required sections based on language
+        if language == "tr":
+            required_sections = [
+                "özet", "yönetici özeti", "teknik beceriler", "beceriler", 
+                "deneyim", "eğitim", "öneri", "tavsiye", "güçlü", "proje"
+            ]
+        else:
+            required_sections = [
+                "executive summary", "technical skills", "experience", 
+                "education", "recommendation", "strengths", "project"
+            ]
         
         # Check if at least 4 out of core sections are present
         sections_found = sum(1 for section in required_sections 
@@ -714,12 +724,12 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
                         "tr": (
                             "\n\nÖNEMLİ: EKSIKSIZ bir rapor oluşturun. "
                             "Yukarıda belirtilen tüm bölümleri kapsayana kadar durmayın. "
-                            "Son Öneri bölümünü mutlaka sonuna ekleyin."
+                            "Son Öneri bölümünü mutlaka sonuna ekleyin. TÜRKÇE yazın."
                         ),
                         "en": (
                             "\n\nIMPORTANT: Generate a COMPLETE report. "
                             "Do not stop until you have covered all sections mentioned above. "
-                            "Make sure to include the Final Recommendation section at the end."
+                            "Make sure to include the Final Recommendation section at the end. Write in ENGLISH."
                         )
                     }
                     report_prompt += completion_instruction.get(language, completion_instruction["en"])
@@ -736,7 +746,7 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
                 
                 if response.text:
                     # Validate completeness
-                    if self._validate_report_completeness(response.text):
+                    if self._validate_report_completeness(response.text, language):
                         return response.text
                     else:
                         st.warning(lang_msgs["retry_warning"].format(attempt + 1))
@@ -759,7 +769,7 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
         language: str
     ) -> str:
         """
-        Generate the prompt for final report generation (Original detailed version).
+        Generate the prompt for final report generation with explicit language control.
         
         Args:
             job_requirements: Job requirements
@@ -771,73 +781,141 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
         """
         candidate_name = self.cv_data.get('name', 'Unknown Candidate')
         position_title = job_requirements.position_title or 'Unknown Position'
-        lang_name = "Turkish" if language == "tr" else "English"
         
-        return f"""Generate a comprehensive, professional job compatibility report based on this analysis:
+        # Language-specific prompts
+        if language == "tr":
+            return f"""Bu analiz sonuçlarına göre kapsamlı, profesyonel bir iş uyumluluk raporu oluştur:
 
-    JOB POSITION: {position_title}
-    CANDIDATE: {candidate_name}
+POZİSYON: {position_title}
+ADAY: {candidate_name}
 
-    COMPATIBILITY ANALYSIS:
-    {json.dumps(compatibility_analysis, indent=2)}
+UYUMLULUK ANALİZİ:
+{json.dumps(compatibility_analysis, indent=2)}
 
-    Generate a detailed report in {lang_name} with these sections:
+TÜRKÇE olarak aşağıdaki bölümleri içeren detaylı bir rapor oluştur:
 
-    1. **Executive Summary** 
-    - Overall compatibility score with visual indicator (e.g., ⭐ ratings)
-    - One-paragraph recommendation summary
-    - Key highlights (3-4 bullet points)
+1. **Yönetici Özeti** 
+- Genel uyumluluk skoru ve görsel gösterge (⭐ derecelendirmeleri)
+- Bir paragraf özet öneri
+- Ana noktalar (3-4 madde)
 
-    2. **Technical Skills Assessment**
-    - Required skills coverage with percentage
-    - Matched skills with proficiency indicators
-    - Missing skills with learning recommendations
-    - Additional relevant skills that add value
+2. **Teknik Beceriler Değerlendirmesi**
+- Gerekli becerilerin karşılanma yüzdesi
+- Eşleşen beceriler ve yeterlilik göstergeleri
+- Eksik beceriler ve öğrenme önerileri
+- Değer katacak ek ilgili beceriler
 
-    3. **Professional Experience Evaluation**
-    - Years of relevant experience vs. requirement
-    - Most relevant roles and achievements
-    - Industry/domain experience alignment
-    - Leadership and project complexity indicators
+3. **Profesyonel Deneyim Değerlendirmesi**
+- İlgili deneyim yılları vs gereksinim
+- En uygun roller ve başarılar
+- Sektör/alan deneyimi uyumu
+- Liderlik ve proje karmaşıklığı göstergeleri
 
-    4. **Education & Certifications**
-    - Formal education alignment
-    - Relevant certifications and training
-    - Continuous learning indicators
+4. **Eğitim ve Sertifikasyonlar**
+- Formal eğitim uyumu
+- İlgili sertifikalar ve eğitimler
+- Sürekli öğrenme göstergeleri
 
-    5. **Project Portfolio Analysis**
-    - Most relevant projects with impact
-    - Technical complexity demonstrated
-    - Problem-solving capabilities shown
+5. **Proje Portföyü Analizi**
+- En uygun projeler ve etkileri
+- Gösterilen teknik karmaşıklık
+- Gösterilen problem çözme yetenekleri
 
-    6. **Key Strengths for This Role**
-    - Top 5 strengths with specific examples
-    - Unique value propositions
-    - Cultural/soft skill alignments
+6. **Bu Rol İçin Ana Güçlü Yönler**
+- Spesifik örneklerle en iyi 5 güçlü yön
+- Benzersiz değer önerileri
+- Kültürel/yumuşak beceri uyumları
 
-    7. **Development Opportunities**
-    - Skills gaps with priority levels
-    - Suggested learning paths
-    - Timeline for skill acquisition
+7. **Gelişim Fırsatları**
+- Öncelik düzeyleri ile beceri eksiklikleri
+- Önerilen öğrenme yolları
+- Beceri kazanımı için zaman çizelgesi
 
-    8. **Final Recommendation**
-    - Clear hiring recommendation (Highly Recommended/Recommended/Conditional/Not Recommended)
-    - Risk assessment
-    - Onboarding suggestions if hired
-    - Alternative role suggestions if applicable
+8. **Son Öneri**
+- Net işe alım önerisi (Güçlü Şekilde Önerilir/Önerilir/Koşullu/Önerilmez)
+- Risk değerlendirmesi
+- İşe alınırsa uyum önerileri
+- Uygunsa alternatif rol önerileri
 
-    Formatting Guidelines:
-    - Use clear headings and subheadings
-    - Include percentage scores and metrics where relevant
-    - Use bullet points for clarity
-    - Add emoji indicators for visual appeal (✅ ❌ ⚠️ 🌟 📊)
-    - Keep professional but engaging tone
-    - Make it scannable with good use of bold text
-    - Total length: 800-1200 words
+Biçimlendirme Kuralları:
+- Net başlıklar ve alt başlıklar kullan
+- İlgili yerlerde yüzde skorları ve ölçütler ekle
+- Netlik için madde işaretleri kullan
+- Görsel çekicilik için emoji göstergeleri ekle (✅ ❌ ⚠️ 🌟 📊)
+- Profesyonel ama ilgi çekici ton kullan
+- Kalın metin kullanarak taranabilir yap
+- Toplam uzunluk: 800-1200 kelime
 
-    Focus on actionable insights for both the recruiter and the candidate.
+Hem işe alan hem de aday için eyleme dönük içgörülere odaklan.
 
-    CRITICAL: Write the COMPLETE report covering all 8 sections. Do not stop until you reach the Final Recommendation section."""
+KRİTİK: 8 bölümü de kapsayan EKSİKSİZ raporu TÜRKÇE olarak yaz. Son Öneri bölümüne ulaşana kadar durma."""
+        
+        else:  # English
+            return f"""Generate a comprehensive, professional job compatibility report based on this analysis:
+
+JOB POSITION: {position_title}
+CANDIDATE: {candidate_name}
+
+COMPATIBILITY ANALYSIS:
+{json.dumps(compatibility_analysis, indent=2)}
+
+Generate a detailed report in ENGLISH with these sections:
+
+1. **Executive Summary** 
+- Overall compatibility score with visual indicator (e.g., ⭐ ratings)
+- One-paragraph recommendation summary
+- Key highlights (3-4 bullet points)
+
+2. **Technical Skills Assessment**
+- Required skills coverage with percentage
+- Matched skills with proficiency indicators
+- Missing skills with learning recommendations
+- Additional relevant skills that add value
+
+3. **Professional Experience Evaluation**
+- Years of relevant experience vs. requirement
+- Most relevant roles and achievements
+- Industry/domain experience alignment
+- Leadership and project complexity indicators
+
+4. **Education & Certifications**
+- Formal education alignment
+- Relevant certifications and training
+- Continuous learning indicators
+
+5. **Project Portfolio Analysis**
+- Most relevant projects with impact
+- Technical complexity demonstrated
+- Problem-solving capabilities shown
+
+6. **Key Strengths for This Role**
+- Top 5 strengths with specific examples
+- Unique value propositions
+- Cultural/soft skill alignments
+
+7. **Development Opportunities**
+- Skills gaps with priority levels
+- Suggested learning paths
+- Timeline for skill acquisition
+
+8. **Final Recommendation**
+- Clear hiring recommendation (Highly Recommended/Recommended/Conditional/Not Recommended)
+- Risk assessment
+- Onboarding suggestions if hired
+- Alternative role suggestions if applicable
+
+Formatting Guidelines:
+- Use clear headings and subheadings
+- Include percentage scores and metrics where relevant
+- Use bullet points for clarity
+- Add emoji indicators for visual appeal (✅ ❌ ⚠️ 🌟 📊)
+- Keep professional but engaging tone
+- Make it scannable with good use of bold text
+- Total length: 800-1200 words
+
+Focus on actionable insights for both the recruiter and the candidate.
+
+CRITICAL: Write the COMPLETE report covering all 8 sections in ENGLISH. Do not stop until you reach the Final Recommendation section."""
 
     def _generate_fallback_report(
         self, 
@@ -868,148 +946,148 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
         if language == "tr":
             return f"""# 📋 {candidate_name} - {position_title} Uyum Raporu
 
-    ## ⭐ Genel Değerlendirme
-    **Genel Uyum Skoru:** {overall_score}% {'🌟🌟🌟🌟🌟' if overall_score >= 80 else '🌟🌟🌟🌟' if overall_score >= 60 else '🌟🌟🌟' if overall_score >= 40 else '🌟🌟'}
+## ⭐ Genel Değerlendirme
+**Genel Uyum Skoru:** {overall_score}% {'🌟🌟🌟🌟🌟' if overall_score >= 80 else '🌟🌟🌟🌟' if overall_score >= 60 else '🌟🌟🌟' if overall_score >= 40 else '🌟🌟'}
 
-    Bu adayın söz konusu pozisyon için genel uyum düzeyi **{overall_score}%** olarak değerlendirilmiştir. Bu rapor, aday profilinin detaylı analizi sonucunda oluşturulmuştur.
+Bu adayın söz konusu pozisyon için genel uyum düzeyi **{overall_score}%** olarak değerlendirilmiştir. Bu rapor, aday profilinin detaylı analizi sonucunda oluşturulmuştur.
 
-    ### 🎯 Öne Çıkan Noktalar:
-    • **Teknik Beceri Uyumu:** {skill_analysis.get('required_skills_match', 0)}%
-    • **Deneyim Kalitesi:** {experience_analysis.get('experience_quality_score', 0)}%
-    • **Eğitim Uygunluğu:** {'✅ Uygun' if education_analysis.get('meets_education_requirement', False) else '⚠️ Kısmen Uygun'}
+### 🎯 Öne Çıkan Noktalar:
+• **Teknik Beceri Uyumu:** {skill_analysis.get('required_skills_match', 0)}%
+• **Deneyim Kalitesi:** {experience_analysis.get('experience_quality_score', 0)}%
+• **Eğitim Uygunluğu:** {'✅ Uygun' if education_analysis.get('meets_education_requirement', False) else '⚠️ Kısmen Uygun'}
 
-    ## 🔧 Teknik Beceriler Analizi
-    **Gerekli Becerilerin Karşılanma Oranı:** {skill_analysis.get('required_skills_match', 0)}%
+## 🔧 Teknik Beceriler Analizi
+**Gerekli Becerilerin Karşılanma Oranı:** {skill_analysis.get('required_skills_match', 0)}%
 
-    ### ✅ Eşleşen Gerekli Beceriler:
-    {chr(10).join([f"• **{skill}** - Doğrulanmış yetkinlik" for skill in skill_analysis.get('matched_required_skills', [])]) or '• Detaylar analiz edilmekte'}
+### ✅ Eşleşen Gerekli Beceriler:
+{chr(10).join([f"• **{skill}** - Doğrulanmış yetkinlik" for skill in skill_analysis.get('matched_required_skills', [])]) or '• Detaylar analiz edilmekte'}
 
-    ### ❌ Eksik Beceriler:
-    {chr(10).join([f"• **{skill}** - Geliştirilmesi önerilen alan" for skill in skill_analysis.get('missing_required_skills', [])]) or '• Büyük beceri eksikliği tespit edilmedi'}
+### ❌ Eksik Beceriler:
+{chr(10).join([f"• **{skill}** - Geliştirilmesi önerilen alan" for skill in skill_analysis.get('missing_required_skills', [])]) or '• Büyük beceri eksikliği tespit edilmedi'}
 
-    ### 🌟 Ek Değerli Beceriler:
-    {chr(10).join([f"• **{skill}** - Pozisyona ek değer katacak" for skill in skill_analysis.get('additional_relevant_skills', [])]) or '• Ek beceriler değerlendirilmekte'}
+### 🌟 Ek Değerli Beceriler:
+{chr(10).join([f"• **{skill}** - Pozisyona ek değer katacak" for skill in skill_analysis.get('additional_relevant_skills', [])]) or '• Ek beceriler değerlendirilmekte'}
 
-    ## 💼 Profesyonel Deneyim Değerlendirmesi
-    **Deneyim Gereksinimini Karşılama:** {'✅ Evet' if experience_analysis.get('meets_experience_requirement', False) else '❌ Hayır'}
+## 💼 Profesyonel Deneyim Değerlendirmesi
+**Deneyim Gereksinimini Karşılama:** {'✅ Evet' if experience_analysis.get('meets_experience_requirement', False) else '❌ Hayır'}
 
-    **Tahmini İlgili Deneyim:** {experience_analysis.get('relevant_experience_years', 0)} yıl
+**Tahmini İlgili Deneyim:** {experience_analysis.get('relevant_experience_years', 0)} yıl
 
-    ### 🏆 İlgili Deneyimler:
-    {chr(10).join([f"• {exp}" for exp in experience_analysis.get('relevant_experiences', [])]) or '• Deneyim detayları analiz edilmekte'}
+### 🏆 İlgili Deneyimler:
+{chr(10).join([f"• {exp}" for exp in experience_analysis.get('relevant_experiences', [])]) or '• Deneyim detayları analiz edilmekte'}
 
-    **Deneyim Kalite Skoru:** {experience_analysis.get('experience_quality_score', 0)}/100
+**Deneyim Kalite Skoru:** {experience_analysis.get('experience_quality_score', 0)}/100
 
-    ## 🎓 Eğitim ve Sertifikasyonlar
-    **Eğitim Gereksinimini Karşılama:** {'✅ Evet' if education_analysis.get('meets_education_requirement', False) else '❌ Hayır'}
+## 🎓 Eğitim ve Sertifikasyonlar
+**Eğitim Gereksinimini Karşılama:** {'✅ Evet' if education_analysis.get('meets_education_requirement', False) else '❌ Hayır'}
 
-    **Eğitim İlgililik Skoru:** {education_analysis.get('education_relevance_score', 0)}/100
+**Eğitim İlgililik Skoru:** {education_analysis.get('education_relevance_score', 0)}/100
 
-    ### 📚 İlgili Eğitim Geçmişi:
-    {chr(10).join([f"• {edu}" for edu in education_analysis.get('relevant_education', [])]) or '• Eğitim detayları değerlendirilmekte'}
+### 📚 İlgili Eğitim Geçmişi:
+{chr(10).join([f"• {edu}" for edu in education_analysis.get('relevant_education', [])]) or '• Eğitim detayları değerlendirilmekte'}
 
-    ## 🚀 Proje Portföyü Analizi
-    **Proje İlgililik Skoru:** {compatibility_analysis.get('project_analysis', {}).get('project_relevance_score', 0)}/100
+## 🚀 Proje Portföyü Analizi
+**Proje İlgililik Skoru:** {compatibility_analysis.get('project_analysis', {}).get('project_relevance_score', 0)}/100
 
-    ### 💡 İlgili Projeler:
-    {chr(10).join([f"• {proj}" for proj in compatibility_analysis.get('project_analysis', {}).get('relevant_projects', [])]) or '• Proje portföyü değerlendirilmekte'}
+### 💡 İlgili Projeler:
+{chr(10).join([f"• {proj}" for proj in compatibility_analysis.get('project_analysis', {}).get('relevant_projects', [])]) or '• Proje portföyü değerlendirilmekte'}
 
-    ## ⭐ Bu Pozisyon İçin Güçlü Yönler
-    {chr(10).join([f"🌟 **{strength}**" for strength in compatibility_analysis.get('strengths', [])]) or '🌟 Güçlü yönler detaylandırılmekte'}
+## ⭐ Bu Pozisyon İçin Güçlü Yönler
+{chr(10).join([f"🌟 **{strength}**" for strength in compatibility_analysis.get('strengths', [])]) or '🌟 Güçlü yönler detaylandırılmakte'}
 
-    ## 📈 Gelişim Fırsatları
-    {chr(10).join([f"⚠️ **{weakness}**" for weakness in compatibility_analysis.get('weaknesses', [])]) or '⚠️ Gelişim alanları belirlenmekte'}
+## 📈 Gelişim Fırsatları
+{chr(10).join([f"⚠️ **{weakness}**" for weakness in compatibility_analysis.get('weaknesses', [])]) or '⚠️ Gelişim alanları belirlenmekte'}
 
-    ## 💡 Öneriler
-    {chr(10).join([f"💡 {rec}" for rec in compatibility_analysis.get('recommendations', [])]) or '💡 Detaylı öneriler hazırlanmakta'}
+## 💡 Öneriler
+{chr(10).join([f"💡 {rec}" for rec in compatibility_analysis.get('recommendations', [])]) or '💡 Detaylı öneriler hazırlanmakta'}
 
-    ## 🎯 Final Önerisi
-    {
-        '🌟 **Güçlü Şekilde Önerilir** - Yüksek uyum gösteren, pozisyona mükemmel uygun aday' if overall_score >= 80
-        else '✅ **Önerilir** - İyi uyum gösteren, değerlendirilmeye değer aday' if overall_score >= 60
-        else '⚠️ **Koşullu Öneri** - Belirli alanlarda gelişim gerektiren aday' if overall_score >= 40
-        else '❌ **Önerilmez** - Bu pozisyon için uygun olmayan aday profili'
-    }
+## 🎯 Final Önerisi
+{
+    '🌟 **Güçlü Şekilde Önerilir** - Yüksek uyum gösteren, pozisyona mükemmel uygun aday' if overall_score >= 80
+    else '✅ **Önerilir** - İyi uyum gösteren, değerlendirilmeye değer aday' if overall_score >= 60
+    else '⚠️ **Koşullu Öneri** - Belirli alanlarda gelişim gerektiren aday' if overall_score >= 40
+    else '❌ **Önerilmez** - Bu pozisyon için uygun olmayan aday profili'
+}
 
-    ### 📊 Risk Değerlendirmesi:
-    • **Teknik Risk:** {'Düşük' if skill_analysis.get('required_skills_match', 0) >= 70 else 'Orta' if skill_analysis.get('required_skills_match', 0) >= 50 else 'Yüksek'}
-    • **Deneyim Riski:** {'Düşük' if experience_analysis.get('experience_quality_score', 0) >= 70 else 'Orta' if experience_analysis.get('experience_quality_score', 0) >= 50 else 'Yüksek'}
+### 📊 Risk Değerlendirmesi:
+• **Teknik Risk:** {'Düşük' if skill_analysis.get('required_skills_match', 0) >= 70 else 'Orta' if skill_analysis.get('required_skills_match', 0) >= 50 else 'Yüksek'}
+• **Deneyim Riski:** {'Düşük' if experience_analysis.get('experience_quality_score', 0) >= 70 else 'Orta' if experience_analysis.get('experience_quality_score', 0) >= 50 else 'Yüksek'}
 
-    ---
-    *Bu rapor AI analizi ile otomatik olarak oluşturulmuştur. Detaylı değerlendirme için insan kaynakları uzmanı ile görüşme önerilir.*"""
+---
+*Bu rapor AI analizi ile otomatik olarak oluşturulmuştur. Detaylı değerlendirme için insan kaynakları uzmanı ile görüşme önerilir.*"""
         
         else:
             return f"""# 📋 {candidate_name} - {position_title} Compatibility Report
 
-    ## ⭐ Executive Summary
-    **Overall Compatibility Score:** {overall_score}% {'🌟🌟🌟🌟🌟' if overall_score >= 80 else '🌟🌟🌟🌟' if overall_score >= 60 else '🌟🌟🌟' if overall_score >= 40 else '🌟🌟'}
+## ⭐ Executive Summary
+**Overall Compatibility Score:** {overall_score}% {'🌟🌟🌟🌟🌟' if overall_score >= 80 else '🌟🌟🌟🌟' if overall_score >= 60 else '🌟🌟🌟' if overall_score >= 40 else '🌟🌟'}
 
-    This candidate shows a **{overall_score}%** overall compatibility for the specified position. This report is based on comprehensive analysis of the candidate's profile against job requirements.
+This candidate shows a **{overall_score}%** overall compatibility for the specified position. This report is based on comprehensive analysis of the candidate's profile against job requirements.
 
-    ### 🎯 Key Highlights:
-    • **Technical Skills Match:** {skill_analysis.get('required_skills_match', 0)}%
-    • **Experience Quality:** {experience_analysis.get('experience_quality_score', 0)}%
-    • **Education Fit:** {'✅ Suitable' if education_analysis.get('meets_education_requirement', False) else '⚠️ Partially Suitable'}
+### 🎯 Key Highlights:
+• **Technical Skills Match:** {skill_analysis.get('required_skills_match', 0)}%
+• **Experience Quality:** {experience_analysis.get('experience_quality_score', 0)}%
+• **Education Fit:** {'✅ Suitable' if education_analysis.get('meets_education_requirement', False) else '⚠️ Partially Suitable'}
 
-    ## 🔧 Technical Skills Assessment
-    **Required Skills Coverage:** {skill_analysis.get('required_skills_match', 0)}%
+## 🔧 Technical Skills Assessment
+**Required Skills Coverage:** {skill_analysis.get('required_skills_match', 0)}%
 
-    ### ✅ Matched Required Skills:
-    {chr(10).join([f"• **{skill}** - Verified competency" for skill in skill_analysis.get('matched_required_skills', [])]) or '• Skills details under analysis'}
+### ✅ Matched Required Skills:
+{chr(10).join([f"• **{skill}** - Verified competency" for skill in skill_analysis.get('matched_required_skills', [])]) or '• Skills details under analysis'}
 
-    ### ❌ Missing Skills:
-    {chr(10).join([f"• **{skill}** - Recommended development area" for skill in skill_analysis.get('missing_required_skills', [])]) or '• No major skill gaps identified'}
+### ❌ Missing Skills:
+{chr(10).join([f"• **{skill}** - Recommended development area" for skill in skill_analysis.get('missing_required_skills', [])]) or '• No major skill gaps identified'}
 
-    ### 🌟 Additional Relevant Skills:
-    {chr(10).join([f"• **{skill}** - Adds value to the role" for skill in skill_analysis.get('additional_relevant_skills', [])]) or '• Additional skills being evaluated'}
+### 🌟 Additional Relevant Skills:
+{chr(10).join([f"• **{skill}** - Adds value to the role" for skill in skill_analysis.get('additional_relevant_skills', [])]) or '• Additional skills being evaluated'}
 
-    ## 💼 Professional Experience Evaluation
-    **Meets Experience Requirement:** {'✅ Yes' if experience_analysis.get('meets_experience_requirement', False) else '❌ No'}
+## 💼 Professional Experience Evaluation
+**Meets Experience Requirement:** {'✅ Yes' if experience_analysis.get('meets_experience_requirement', False) else '❌ No'}
 
-    **Estimated Relevant Experience:** {experience_analysis.get('relevant_experience_years', 0)} years
+**Estimated Relevant Experience:** {experience_analysis.get('relevant_experience_years', 0)} years
 
-    ### 🏆 Relevant Experiences:
-    {chr(10).join([f"• {exp}" for exp in experience_analysis.get('relevant_experiences', [])]) or '• Experience details under analysis'}
+### 🏆 Relevant Experiences:
+{chr(10).join([f"• {exp}" for exp in experience_analysis.get('relevant_experiences', [])]) or '• Experience details under analysis'}
 
-    **Experience Quality Score:** {experience_analysis.get('experience_quality_score', 0)}/100
+**Experience Quality Score:** {experience_analysis.get('experience_quality_score', 0)}/100
 
-    ## 🎓 Education & Certifications
-    **Meets Education Requirement:** {'✅ Yes' if education_analysis.get('meets_education_requirement', False) else '❌ No'}
+## 🎓 Education & Certifications
+**Meets Education Requirement:** {'✅ Yes' if education_analysis.get('meets_education_requirement', False) else '❌ No'}
 
-    **Education Relevance Score:** {education_analysis.get('education_relevance_score', 0)}/100
+**Education Relevance Score:** {education_analysis.get('education_relevance_score', 0)}/100
 
-    ### 📚 Relevant Educational Background:
-    {chr(10).join([f"• {edu}" for edu in education_analysis.get('relevant_education', [])]) or '• Educational details being evaluated'}
+### 📚 Relevant Educational Background:
+{chr(10).join([f"• {edu}" for edu in education_analysis.get('relevant_education', [])]) or '• Educational details being evaluated'}
 
-    ## 🚀 Project Portfolio Analysis
-    **Project Relevance Score:** {compatibility_analysis.get('project_analysis', {}).get('project_relevance_score', 0)}/100
+## 🚀 Project Portfolio Analysis
+**Project Relevance Score:** {compatibility_analysis.get('project_analysis', {}).get('project_relevance_score', 0)}/100
 
-    ### 💡 Relevant Projects:
-    {chr(10).join([f"• {proj}" for proj in compatibility_analysis.get('project_analysis', {}).get('relevant_projects', [])]) or '• Project portfolio under evaluation'}
+### 💡 Relevant Projects:
+{chr(10).join([f"• {proj}" for proj in compatibility_analysis.get('project_analysis', {}).get('relevant_projects', [])]) or '• Project portfolio under evaluation'}
 
-    ## ⭐ Key Strengths for This Role
-    {chr(10).join([f"🌟 **{strength}**" for strength in compatibility_analysis.get('strengths', [])]) or '🌟 Strengths being detailed'}
+## ⭐ Key Strengths for This Role
+{chr(10).join([f"🌟 **{strength}**" for strength in compatibility_analysis.get('strengths', [])]) or '🌟 Strengths being detailed'}
 
-    ## 📈 Development Opportunities
-    {chr(10).join([f"⚠️ **{weakness}**" for weakness in compatibility_analysis.get('weaknesses', [])]) or '⚠️ Development areas being identified'}
+## 📈 Development Opportunities
+{chr(10).join([f"⚠️ **{weakness}**" for weakness in compatibility_analysis.get('weaknesses', [])]) or '⚠️ Development areas being identified'}
 
-    ## 💡 Recommendations
-    {chr(10).join([f"💡 {rec}" for rec in compatibility_analysis.get('recommendations', [])]) or '💡 Detailed recommendations being prepared'}
+## 💡 Recommendations
+{chr(10).join([f"💡 {rec}" for rec in compatibility_analysis.get('recommendations', [])]) or '💡 Detailed recommendations being prepared'}
 
-    ## 🎯 Final Recommendation
-    {
-        '🌟 **Highly Recommended** - Excellent match showing high compatibility for the position' if overall_score >= 80
-        else '✅ **Recommended** - Good match worth considering for the role' if overall_score >= 60
-        else '⚠️ **Conditional Recommendation** - Candidate requiring development in certain areas' if overall_score >= 40
-        else '❌ **Not Recommended** - Candidate profile not suitable for this position'
-    }
+## 🎯 Final Recommendation
+{
+    '🌟 **Highly Recommended** - Excellent match showing high compatibility for the position' if overall_score >= 80
+    else '✅ **Recommended** - Good match worth considering for the role' if overall_score >= 60
+    else '⚠️ **Conditional Recommendation** - Candidate requiring development in certain areas' if overall_score >= 40
+    else '❌ **Not Recommended** - Candidate profile not suitable for this position'
+}
 
-    ### 📊 Risk Assessment:
-    • **Technical Risk:** {'Low' if skill_analysis.get('required_skills_match', 0) >= 70 else 'Medium' if skill_analysis.get('required_skills_match', 0) >= 50 else 'High'}
-    • **Experience Risk:** {'Low' if experience_analysis.get('experience_quality_score', 0) >= 70 else 'Medium' if experience_analysis.get('experience_quality_score', 0) >= 50 else 'High'}
+### 📊 Risk Assessment:
+• **Technical Risk:** {'Low' if skill_analysis.get('required_skills_match', 0) >= 70 else 'Medium' if skill_analysis.get('required_skills_match', 0) >= 50 else 'High'}
+• **Experience Risk:** {'Low' if experience_analysis.get('experience_quality_score', 0) >= 70 else 'Medium' if experience_analysis.get('experience_quality_score', 0) >= 50 else 'High'}
 
-    ---
-    *This report was automatically generated through AI analysis. For detailed evaluation, consultation with HR specialist is recommended.*"""
+---
+*This report was automatically generated through AI analysis. For detailed evaluation, consultation with HR specialist is recommended.*"""
 
     def generate_compatibility_report(
         self, 
@@ -1121,7 +1199,7 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
                     "skill_match": compatibility_analysis.get('skill_analysis', {}).get('required_skills_match', 0),
                     "experience_match": compatibility_analysis.get('experience_analysis', {}).get('experience_quality_score', 0),
                     "report_length": len(report_text),
-                    "is_complete": self._validate_report_completeness(report_text)
+                    "is_complete": self._validate_report_completeness(report_text, language)
                 }
             }
             
@@ -1131,6 +1209,7 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
                 "error_type": "system",
                 "details": str(e)
             }
+
 
 # Optional: Utility functions for external use
 def format_compatibility_score(score: float) -> str:

@@ -22,7 +22,7 @@
       "program": "Exchange Semester - Erasmus+ Study Programme",
       "year": "2023",
       "location": "Dornbirn, Austria"
-    },
+    },  
     {
       "institution": "University Of Turkish Aeronautical Association",
       "degree": "Bachelor of Engineering",
@@ -64,7 +64,14 @@
       "CNNs",
       "YOLO",
       "Stable Diffusion Models",
-      "Vision Language Models"
+      "Vision Language Models",
+      "Object Detection",
+      "Image Segmentation",
+      "Image Classification",
+      "Image Captioning",
+      "Image Generation",
+      "Image Processing"
+      
     ],
     "Natural Language Processing": [
       "HuggingFace Transformers",

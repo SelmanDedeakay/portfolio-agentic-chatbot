@@ -7,6 +7,7 @@ from tools.social_media_tool import SocialMediaAggregator
 from tools.job_compatibility_tool import JobCompatibilityAnalyzer
 from tools.pdf_generator import JobCompatibilityPDFGenerator
 from datetime import datetime
+
 class ToolDefinitions:
     """Tool definitions for function calling"""
     
@@ -15,8 +16,6 @@ class ToolDefinitions:
         self.job_compatibility_analyzer = None  # Will be initialized with client and CV data
         self.pdf_generator = JobCompatibilityPDFGenerator()
     
-# In tool_definitions.py, update the initialize_job_analyzer method:
-
     def initialize_job_analyzer(self, client, cv_data, rag_system=None):
         """Initialize job compatibility analyzer with RAG system reference"""
         try:
@@ -97,7 +96,7 @@ class ToolDefinitions:
     
     @staticmethod
     def get_job_compatibility_tool_definition() -> Tool:
-        """Get job compatibility analysis tool definition"""
+        """Get job compatibility analysis tool definition with language selection"""
         analyze_job_func = FunctionDeclaration(
             name="analyze_job_compatibility",
             description="Analyze job compatibility between Selman's profile and a job description. Use this when someone provides a job posting or asks about fit for a specific role.",
@@ -108,12 +107,17 @@ class ToolDefinitions:
                         "type": "string",
                         "description": "The full job description text to analyze compatibility against"
                     },
+                    "report_language": {
+                        "type": "string",
+                        "description": "Language for the compatibility report. ALWAYS ask the user to choose between English (en) or Turkish (tr) before proceeding.",
+                        "enum": ["en", "tr"]
+                    },
                     "company_name": {
                         "type": "string",
                         "description": "Name of the company (optional, for personalized analysis)"
                     }
                 },
-                "required": ["job_description"]
+                "required": ["job_description", "report_language"]
             }
         )
         
@@ -172,9 +176,10 @@ class ToolDefinitions:
                     "success": False,
                     "message": f"Error retrieving posts: {str(e)}"
                 }
+                
         elif tool_name == "generate_compatibility_pdf":
             try:
-                # MODIFIED: Get report content and job title from session state
+                # Get report content and job title from session state
                 report_content = st.session_state.get("last_compatibility_report")
                 job_title = st.session_state.get("last_job_title", "Unknown Position")
                 candidate_name = 'Selman Dedeakayoğulları'
@@ -186,7 +191,8 @@ class ToolDefinitions:
                         "message": "I couldn't find a report to generate a PDF from. Please run a new analysis first."
                     }
 
-                language = "tr" if any("tr" in str(msg).lower() for msg in st.session_state.get("messages", [])) else "en"
+                # Get language from last report metadata or default
+                language = st.session_state.get("last_report_language", "en")
                 
                 pdf_bytes = self.pdf_generator.generate_pdf(
                     report_content, job_title, candidate_name, language
@@ -209,6 +215,7 @@ class ToolDefinitions:
                     "success": False,
                     "message": f"Error generating PDF: {str(e)}"
                 }
+                
         elif tool_name == "analyze_job_compatibility":
             try:
                 if not self.job_compatibility_analyzer:
@@ -224,22 +231,34 @@ class ToolDefinitions:
                         "message": "Job description is required"
                     }
                 
-                language = "tr" if any("tr" in str(msg).lower() for msg in st.session_state.get("messages", [])) else "en"
+                # Get report language from tool args (required parameter)
+                report_language = tool_args.get('report_language', 'en')
                 
-                # MODIFIED: Handle dictionary response from the analysis tool
+                # Validate language
+                if report_language not in ['en', 'tr']:
+                    report_language = 'en'  # Default to English if invalid
+                
+                # Generate compatibility report with specified language
                 report_data = self.job_compatibility_analyzer.generate_compatibility_report(
-                    job_description, language
+                    job_description, report_language
                 )
 
                 if "error" in report_data:
                     return {"success": False, "message": report_data["error"]}
+                
+                # Store report data in session state for PDF generation
+                st.session_state.last_compatibility_report = report_data["report_text"]
+                st.session_state.last_job_title = report_data["job_title"]
+                st.session_state.last_report_language = report_language
                 
                 return {
                     "success": True,
                     "message": "Job compatibility analysis completed",
                     "data": {
                         "report": report_data["report_text"],
-                        "job_title": report_data["job_title"]
+                        "job_title": report_data["job_title"],
+                        "compatibility_score": report_data.get("compatibility_score", 0),
+                        "language": report_language
                     }
                 }
                 
