@@ -895,7 +895,13 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
-
+def clear_pdf_state():
+    # 0.5-1 sn sonra sil
+    import threading, time
+    threading.Timer(1, lambda: [
+        st.session_state.pop("pdf_data", None),
+        st.session_state.pop("pdf_filename", None)
+    ]).start()
 def render_pdf_download() -> None:
     """Render PDF download button if available"""
     if "pdf_data" in st.session_state and "pdf_filename" in st.session_state:
@@ -906,8 +912,7 @@ def render_pdf_download() -> None:
             mime="application/pdf",
             key="download_pdf",
             on_click=lambda: [
-                st.session_state.pop("pdf_data", None),
-                st.session_state.pop("pdf_filename", None)
+                clear_pdf_state(),
             ]
         )
 
