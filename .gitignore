@@ -1,0 +1,27 @@
+# Ortak gizli dosyalar
+.env
+secrets.toml
+**/secrets.toml
+**/.env
+
+# Streamlit secrets (bazı konfigürasyonlarda olabilir)
+.streamlit/secrets.toml
+
+# Pycache ve derlenmiş Python dosyaları
+__pycache__/
+**/__pycache__/
+*.py[cod]
+**/*.py[cod]
+
+# JSON cache ve token dosyaları
+*.json
+
+# VSCode gibi editör/IDE dosyaları (isteğe bağlı)
+.vscode/
+*.code-workspace
+
+# MacOS ve Windows sistem dosyaları
+.DS_Store
+Thumbs.db
+*.pyc
+/tools/__pycache__
