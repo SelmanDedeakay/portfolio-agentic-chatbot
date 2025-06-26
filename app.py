@@ -698,11 +698,19 @@ class GeminiEmbeddingRAG:
             return response.text if response.text else "No response generated"
             
         except Exception as e:
-            error_msg = (
-                f"Yanıt oluşturulurken hata: {e}"
-                if language == Language.TURKISH
-                else f"Error generating response: {e}. The API response might have been empty or invalid."
-            )
+    # Kullanıcıya yeniden deneme tavsiyesi de ekle
+            if language == Language.TURKISH:
+                error_msg = (
+                    f"Yanıt oluşturulurken hata: {e}. "
+                    "API yanıtı boş veya geçersiz olabilir. "
+                    "Lütfen birkaç saniye sonra tekrar deneyin."
+                )
+            else:
+                error_msg = (
+                    f"Error generating response: {e}. "
+                    "The API response might have been empty or invalid. "
+                    "Please wait a moment and try again."
+                )
             return error_msg
 
 
@@ -895,32 +903,28 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Embeddings**: {'✅' if rag_system.cv_embeddings is not None else '❌'}")
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
-import base64
-import streamlit as st
-import streamlit.components.v1 as components
-import base64
-import streamlit as st
-import streamlit.components.v1 as components
 
+
+import streamlit as st
+import base64, uuid
+import streamlit.components.v1 as components
+# ---------------------------------------------------------
+#  render_pdf_download   (BLOB kullanan yeni sürüm)
+# ---------------------------------------------------------
 def render_pdf_download() -> None:
+    # PDF henüz yoksa çık
     if not {"pdf_data", "pdf_filename"} <= st.session_state.keys():
         return
 
-    # ------------------------------------------------------------------ #
-    # 1) Verileri al
-    # ------------------------------------------------------------------ #
+    # ---------------- 1) Veriler --------------------------
     pdf_bytes = st.session_state.pdf_data
     file_name = st.session_state.pdf_filename
     b64_pdf   = base64.b64encode(pdf_bytes).decode()
-    data_url  = f"data:application/pdf;base64,{b64_pdf}"
 
-    # ------------------------------------------------------------------ #
-    # 2) Dil başlıkları
-    # ------------------------------------------------------------------ #
+    # ---------------- 2) Dil başlıkları -------------------
     lang = LanguageDetector.detect_from_messages(
         st.session_state.get("messages", [])
     )
-
     tr = lang == Language.TURKISH
     title         = "📄 PDF Raporu Hazır!"          if tr else "📄 PDF Report Ready!"
     view_text     = "👁️ PDF'yi Görüntüle"          if tr else "👁️ View PDF"
@@ -930,39 +934,78 @@ def render_pdf_download() -> None:
     email_text    = "📧 Email Gönder"              if tr else "📧 Email PDF"
     clear_text    = "🗑️ Temizle"                   if tr else "🗑️ Clear"
 
-    # ------------------------------------------------------------------ #
-    # 3) İndir butonu
-    # ------------------------------------------------------------------ #
+    # ---------------- 3) Başlık + indirme -----------------
+    st.download_button(download_text, pdf_bytes, file_name,
+                       mime="application/pdf", use_container_width=True)
 
-    # ------------------------------------------------------------------ #
-    # 4) PDF Önizleme
-    # ------------------------------------------------------------------ #
-    st.write("PDF Önizleme:" if tr else "PDF Preview:")
-    st.write(f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="600px"></iframe>', unsafe_allow_html=True)
+    # ------------------------------------------------------
+    # 4)  BLOB ►  Yeni Sekme + IFRAME Önizleme
+    # ------------------------------------------------------
+    uid = uuid.uuid4().hex
+    html = f"""
+    <style>
+      .btn {{
+        padding: 12px 22px;
+        background: #10b981;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: .2s;
+        width: 100%;
+        font-size: 16px;
+        display: block;
+        margin: 0 auto;
+      }}
+      .btn:hover {{
+        opacity: .85;
+        transform: translateY(-2px);
+      }}
+      
+      @media (max-width: 768px) {{
+        .btn {{
+          padding: 14px 20px;
+          font-size: 14px;
+        }}
+      }}
+    </style>
 
+    <button id="view_{uid}" class="btn">{view_text}</button>
+
+    <script>
+      const b64 = "{b64_pdf}";
+      const bin = atob(b64);
+      const len = bin.length;
+      const bytes = new Uint8Array(len);
+      for (let i=0;i<len;i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], {{type:"application/pdf"}});
+      const url  = URL.createObjectURL(blob);
+
+      // buton → yeni sekme
+      document.getElementById("view_{uid}").onclick = () => window.open(url,"_blank");
+    </script>
+    """
+
+    # st.markdown JS'i keser → components.html kullan!
+    components.html(html, height=100, scrolling=False)
     
-    with st.container():
-        # Ekran boyutuna göre sütun düzeni
-        if st.session_state.get('mobile_view', False):
-            # Mobile görünüm - tek sütun
-            if st.button(email_text, use_container_width=True, type="secondary"):
-                st.session_state.show_email_form = True
-            if st.button(clear_text, use_container_width=True, type="secondary"):
-                for k in ("pdf_data", "pdf_filename", "show_email_form"):
-                    st.session_state.pop(k, None)
-                st.rerun()
-        else:
-            # Desktop görünüm - iki sütun
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button(email_text, use_container_width=True, type="secondary"):
-                    st.session_state.show_email_form = True
-            with col2:
-                if st.button(clear_text, use_container_width=True, type="secondary"):
-                    for k in ("pdf_data", "pdf_filename", "show_email_form"):
-                        st.session_state.pop(k, None)
-                    st.rerun()
+    # ------------------------------------------------------
+    # 5)  E-posta ve Temizle butonları - Responsive
+    # ------------------------------------------------------
+    col1, col2 = st.columns([1, 1], gap="small")
+    with col1:
+        if st.button(email_text, use_container_width=True):
+            st.session_state.show_email_form = True
+    with col2:
+        if st.button(clear_text, use_container_width=True):
+            for k in ("pdf_data", "pdf_filename", "show_email_form"):
+                st.session_state.pop(k, None)
+            st.rerun()
 
+    # ------------------------------------------------------
+    # 6)  E-posta formu
+    # ------------------------------------------------------
     if st.session_state.get("show_email_form"):
         render_email_form_for_pdf(pdf_bytes, file_name, lang)
 
@@ -1151,7 +1194,8 @@ def main():
     # Header
     st.title("Welcome!")
     st.caption("I'm Selman's AI portfolio assistant, what would you like to know about him?")
-    
+    st.warning("Job Compatibility Analysis Report currently not downloadable. Please use email functionality to receive it until you don't see this message.\n\n"
+                "İş Uyumluluk Analizi Raporu şu anda indirilemiyor. Lütfen bu bildirim kaybolana kadar raporu e-postanıza göndererek alın.")
     # Initialize session state
     initialize_session_state()
     
