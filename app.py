@@ -896,26 +896,44 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
 
-def render_pdf_download():
-    if "pdf_data" not in st.session_state:
-        return  # gösterilecek PDF yok
-
-    # Butona basıldıysa download_button True döner.
-    download_clicked = st.download_button(
-        label="📄 Download PDF Report",
-        data=st.session_state.pdf_data,
-        file_name=st.session_state.pdf_filename,
-        mime="application/pdf",
-        key="download_pdf",
-    )
-
-    # Ana thread, Streamlit bağlamında çalışıyoruz → güvenli
-    if download_clicked:
-        # ✅ Kullanıcı jesti + tarayıcı isteği aynı anda oluştu,
-        #   bytes'ı burada silmek artık güvenli.
-        st.session_state.pop("pdf_data",  None)
-        st.session_state.pop("pdf_filename", None)
-
+def render_pdf_download() -> None:
+    """Enhanced PDF download with mobile support"""
+    if "pdf_data" in st.session_state and "pdf_filename" in st.session_state:
+        try:
+            # PDF size kontrolü
+            pdf_size = len(st.session_state.pdf_data)
+            size_mb = pdf_size / (1024 * 1024)
+            
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                success = st.download_button(
+                    label=f"📄 Download PDF Report ({size_mb:.1f} MB)",
+                    data=st.session_state.pdf_data,
+                    file_name=st.session_state.pdf_filename,
+                    mime="application/pdf",
+                    key="download_pdf",
+                    help="Click to download the compatibility report as PDF"
+                )
+                
+                if success:
+                    st.success("✅ PDF download started!")
+                    # Clear after successful download
+                    st.session_state.pop("pdf_data", None)
+                    st.session_state.pop("pdf_filename", None)
+                    st.rerun()
+            
+            with col2:
+                if st.button("🗑️ Clear", help="Clear PDF from memory"):
+                    st.session_state.pop("pdf_data", None)
+                    st.session_state.pop("pdf_filename", None)
+                    st.rerun()
+                    
+        except Exception as e:
+            st.error(f"PDF download error: {e}")
+            # Clear corrupted data
+            st.session_state.pop("pdf_data", None)
+            st.session_state.pop("pdf_filename", None)
 
 def initialize_session_state() -> None:
     """Initialize session state variables"""
