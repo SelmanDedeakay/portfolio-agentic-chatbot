@@ -418,7 +418,7 @@ class LanguageDetector:
         'çalışma', 'iş', 'üniversite', 'okul', 'mezun', 'değil', 'yok', 'var', 'olan', 'yapan',
         'merhabalar', 'selam', 'günaydın', 'teşekkürler', 'sağol', 'kariyer', 'bilgi', 'selamlar',
         'anladım', 'bilmiyorum', 'istiyorum', 'isterim', 've', 'bir', 'bu', 'şu', 'o', 'ben', 'sen',
-        'ile', 'için', 'ama', 'fakat', 'lakin', 'çünkü', 'ki', 'da', 'de', 'ta', 'te'
+        'ile', 'için', 'ama', 'fakat', 'lakin', 'çünkü', 'ki', 'da', 'de', 'ta', 'te',"neler","yap"
     }
     
     ENGLISH_KEYWORDS = {
@@ -433,7 +433,7 @@ class LanguageDetector:
     ENGLISH_PHRASES = {"i dont", "i don't", "i want", "i need", "i can", "i would", "could you", "can you"}
     
     # Quick lookup greetings
-    TURKISH_GREETINGS = {'selam', 'merhaba', 'merhabalar', 'selamlar', 'günaydın', 'iyi günler'}
+    TURKISH_GREETINGS = {'selam', 'merhaba', 'merhabalar', 'selamlar', 'günaydın', 'iyi günler',"meraba"}
     ENGLISH_GREETINGS = {'hello', 'hi', 'hey', 'greetings', 'good morning', 'good day'}
     
     @classmethod
@@ -571,23 +571,39 @@ Profile: {data.get('profile', 'N/A')}"""
         """Build individual education chunk"""
         edu_text = f"Education / Eğitim: {edu.get('institution', 'N/A')}\n"
         
+        # Handle both degree and program fields
         degree_info = edu.get('degree') or edu.get('program', 'N/A')
         edu_text += f"Degree/Program/Derece: {degree_info}\n"
         
         year_info = edu.get('years') or edu.get('year', 'N/A')
         edu_text += f"Years/Duration/Süre: {year_info}\n"
         
+        # Add GPA if available
+        if gpa := edu.get('gpa'):
+            edu_text += f"GPA/Başarı Notu: {gpa}\n"
+        
         location_info = edu.get('location', 'N/A')
         edu_text += f"Location/Konum: {location_info}\n"
         
-        if memberships := edu.get('memberships'):
-            edu_text += f"Memberships/Üyelikler: {', '.join(memberships)}\n"
+        # Add description if available (for exchange programs)
+        if description := edu.get('description'):
+            edu_text += f"Description/Açıklama: {description}\n"
         
+        # Format memberships more clearly
+        if memberships := edu.get('memberships'):
+            edu_text += f"Memberships/Üyelikler:\n"
+            for membership in memberships:
+                edu_text += f"- {membership}\n"
+        
+        # Enhanced keywords
         keywords = [
             "education", "eğitim", "university", "üniversite", "degree", "derece", 
             "diploma", "bachelor", "lisans", "graduate", "mezun", "student", "öğrenci",
             edu.get('institution', '').lower().replace(' ', '_')
         ]
+        if "exchange" in degree_info.lower() or "erasmus" in degree_info.lower():
+            keywords.extend(["exchange", "erasmus", "study abroad", "yurtdışı eğitim"])
+        
         edu_text += f"Keywords: {', '.join(keywords)}"
         
         return edu_text
@@ -1679,13 +1695,7 @@ def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, la
 def initialize_session_state() -> None:
     """Initialize session state variables"""
     if "messages" not in st.session_state:
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": (
-                "Hello! I'm here to answer questions about Selman. What would you like to know?\n\n "
-                "Merhaba! Selman hakkında sorularınızı yanıtlayabilirim. Ne öğrenmek istersiniz?"
-            )
-        }]
+        st.session_state.messages = []
 
 
 def main():
@@ -1697,13 +1707,22 @@ def main():
         layout="centered",
         initial_sidebar_state="collapsed"
     )
-    
-    # Header
-    st.title("Welcome!")
-    st.caption("I'm Selman's AI portfolio assistant, what would you like to know about him?")
 
+    
+    # Expandable welcome message
+    with st.expander("🤖 **What can I help you with? | Size nasıl yardımcı olabilirim?**", expanded=True):
+        st.markdown("""
+        **🔧 Advanced Features | Gelişmiş Özellikler**
+        - 📧 ****Contact Selman**** - I'll prepare emails for you | Sizin için e-posta hazırlayabilirim.
+        - 📊 **Job Analysis** - Paste job description for compatibility report, just ask for PDF for downloadable document.| Bana iş tanımı verin, size Selman'ın role uygunluğunu raporlayayım. Raporu indirmek için PDF istemeniz yeterli.
+        - 📱 **Social Updates** - Recent posts and articles | Sosyal medya güncellemeleri
+        """)
+
+    
+    # Rest of the code remains the same...
     # Initialize session state
     initialize_session_state()
+
     
     # Initialize RAG system
     if "rag_system" not in st.session_state:

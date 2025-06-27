@@ -12,21 +12,24 @@
   "profile": "Known for combining technical expertise with a positive and engaging team spirit, I work in the field of artificial intelligence and software development, particularly focusing on large language models (LLMs) and computer vision. I enjoy generating original ideas and implementing them in the most practical and effective way. I believe that collaboration amplifies success, and I always strive to elevate both performance and team morale in every project I contribute to.",
   "education": [
     {
-      "institution": "Eskişehir Technical University ",
-      "degree": "Bachelor of Engineering",
-      "years": "2021 – 2025 (Graduated with GPA 3.15/4.00)",
+      "institution": "Eskişehir Technical University",
+      "degree": "Computer Engineering",
+      "years": "2021 – 2025",
+      "gpa": "Graduated with GPA 3.15/4.0",
       "location": "Eskişehir, Turkey"
     },
     {
       "institution": "Vorarlberg University of Applied Sciences",
       "program": "Exchange Semester - Erasmus+ Study Programme",
       "year": "2023",
+      "description": "Studied AI-focused courses in an international setting. Voluntarily attended a Master’s level Computer Vision course alongside MSc students to deepen technical knowledge.",
       "location": "Dornbirn, Austria"
     },  
     {
       "institution": "University Of Turkish Aeronautical Association",
-      "degree": "Bachelor of Engineering",
-      "years": "2020 – 2021 (Transferred to Eskişehir Technical University)",
+      "degree": "Computer Engineering",
+      "years": "2020 – 2021",
+      "gpa": "Transferred after first year with GPA 3.43",
       "location": "Ankara, Turkey",
       "memberships": [
         "IEEE UTAA Computer Society",
@@ -39,19 +42,19 @@
       "title": "AI Engineer Intern",
       "company": "Arena",
       "duration": "Dec 2023 – Mar 2025",
-      "description": "Developing and maintaining existing/new chatbots using low-code AI platforms. Creating LLM based solutions via models like LLama and GPT-4o and GPT4-Vision"
+      "description": "Developed and maintained chatbots for enterprise clients in Turkey and abroad using Druid AI. Delivered PoCs and provided ongoing support. Built LLM-based solutions using LLaMA, GPT-4, GPT-4o, and GPT-4 Vision."
     },
     {
       "title": "Software Engineering Intern",
       "company": "Turkish Aerospace Industries",
       "duration": "Nov 2022 – Jan 2023",
-      "description": "Contributing to backend solutions for different modules. Due to Erasmus+ programme, I had to leave earlier than SKY program ends."
+      "description": "Contributed to backend development for various internal modules. Gained experience in large-scale systems. Left early due to Erasmus study abroad program."
     },
     {
       "title": "Computer Vision Intern",
       "company": "Visea Innovative",
       "duration": "Jul 2022 – Aug 2022",
-      "description": "At my first internship, I developed many classification and segmentation applications with deep learning by using PyTorch and Tensorflow."
+      "description": "Built classification and segmentation models using PyTorch and TensorFlow. Worked with diverse architectures including ResNet, U-Net, MobileNet, EfficientNet, and VGG."
     }
   ],
   "skills": {
@@ -146,7 +149,7 @@
     }
   ],
   "awards": [
-    {
+ {
       "name": "TEKNOFEST T3 AI Hackathon 2024 Finalist",
       "organization": "T3 (Türkiye Technology Team)",
       "description": "Selected among 200+ teams to develop an LLM-based project within 48 hours at the T3 AI Hackathon."
@@ -154,12 +157,12 @@
     {
       "name": "OBSS Code Master 2022",
       "organization": "OBSS",
-      "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition"
+      "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition."
     },
     {
       "name": "EESTech AI Solutions Challenge",
       "organization": "EESTEC LC Eskişehir",
-      "description": "Created sentimental analysis solution in an hackathon within 4 hours. Achieved 2nd Place"
+      "description": "Created sentimental analysis solution in an hackathon within 4 hours. Achieved 2nd Place."
     }
   ],
   "languages": {
