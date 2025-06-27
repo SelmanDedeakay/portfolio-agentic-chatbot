@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 import time
-
+import datetime 
 # Import tools and components
 from tools.email_tool import EmailTool
 from tools.social_media_tool import SocialMediaAggregator
@@ -118,7 +118,7 @@ def get_system_text(language_code: str) -> Dict[str, str]:
             "configure_api_key": "Devam etmek için GEMINI_API_KEY'i yapılandırın",
             
             # Sidebar
-            "sidebar_title": "🔍 Meraklı biriymişsin :)",
+            "sidebar_title": "🔍 Meraklı biriymişsin",
             "cache_status": "💾 Önbellek Durumu",
             "cache_active": "✅ Aktif",
             "cache_chunks": "Chunk'lar",
@@ -207,7 +207,7 @@ def get_system_text(language_code: str) -> Dict[str, str]:
 
             
             # Sidebar
-            "sidebar_title": "🔍 So you are a curious one :)",
+            "sidebar_title": "🔍 Okay, okay... Mr.Curious.",
             "cache_status": "💾 Cache Status",
             "cache_active": "✅ Active",
             "cache_chunks": "Chunks",
@@ -1428,6 +1428,7 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
     system_text = get_system_text(language.value)
     
     with st.sidebar:
+        st.info("Lastly Updated: "+str(datetime.datetime.now())[:-7])
         st.markdown(f"### {system_text['sidebar_title']}")
         st.markdown("- **Embeddings**: text-embedding-004")
         st.markdown("- **Generation**: gemini-2.5-flash-lite-preview-06-17")
