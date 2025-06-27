@@ -792,6 +792,8 @@ ADAY: {candidate_name}
 UYUMLULUK ANALİZİ:
 {json.dumps(compatibility_analysis, indent=2)}
 
+ÖNEMLİ: Analiz raporunuza herhangi bir tarih eklemeyin. Doküman otomatik olarak başlığa doğru oluşturulma tarihini ekleyecektir. Sadece uyumluluk analizi içeriğine odaklanın, zaman damgası veya tarih eklemeyin.
+
 TÜRKÇE olarak aşağıdaki bölümleri içeren detaylı bir rapor oluştur:
 
 1. **Yönetici Özeti** 
@@ -848,7 +850,7 @@ Biçimlendirme Kuralları:
 
 Hem işe alan hem de aday için eyleme dönük içgörülere odaklan.
 
-KRİTİK: 8 bölümü de kapsayan EKSİKSİZ raporu TÜRKÇE olarak yaz. Son Öneri bölümüne ulaşana kadar durma."""
+KRİTİK: 8 bölümü de kapsayan EKSİKSİZ raporu TÜRKÇE olarak yaz. "İşte size bir analiz" gibi giriş cümleleri yazma. Direkt olarak rapora başla. Son Öneri bölümüne ulaşana kadar durma."""
         
         else:  # English
             return f"""Generate a comprehensive, professional job compatibility report based on this analysis:
@@ -858,6 +860,9 @@ CANDIDATE: {candidate_name}
 
 COMPATIBILITY ANALYSIS:
 {json.dumps(compatibility_analysis, indent=2)}
+
+IMPORTANT: Do not include any dates in your analysis report. The document will automatically include the correct generation date in the header. Focus only on the compatibility analysis content without adding timestamps or dates.
+
 
 Generate a detailed report in ENGLISH with these sections:
 
@@ -915,7 +920,7 @@ Formatting Guidelines:
 
 Focus on actionable insights for both the recruiter and the candidate.
 
-CRITICAL: Write the COMPLETE report covering all 8 sections in ENGLISH. Do not stop until you reach the Final Recommendation section."""
+CRITICAL: Write the COMPLETE report covering all 8 sections in ENGLISH. Don't write introductory sentences like "Here's an analysis for you." Start the report directly. Do not stop until you reach the Final Recommendation section."""
 
     def _generate_fallback_report(
         self, 
