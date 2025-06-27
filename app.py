@@ -3,10 +3,9 @@ import os
 import numpy as np
 import pickle
 import hashlib
-from typing import List, Dict, Any, Optional, Tuple, Set
+from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-import re
 import json
 from dotenv import load_dotenv
 from google import genai
@@ -15,8 +14,6 @@ import time
 import datetime 
 import uuid
 from supabase import create_client, Client
-import streamlit.components.v1 as components
-
 # Import tools and components
 from tools.email_tool import EmailTool
 from tools.social_media_tool import SocialMediaAggregator
@@ -1832,7 +1829,6 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
 
 import streamlit as st
 import base64, uuid
-import streamlit.components.v1 as components
 
 def render_pdf_download() -> None:
     # PDF henüz yoksa çık
