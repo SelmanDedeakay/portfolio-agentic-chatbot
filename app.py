@@ -118,6 +118,7 @@ def get_system_text(language_code: str) -> Dict[str, str]:
             "configure_api_key": "Devam etmek için GEMINI_API_KEY'i yapılandırın",
             
             # Sidebar
+            "last_update":f"Son Güncelleme: "+str(datetime.datetime.now())[:-7],
             "sidebar_title": "🔍 Meraklı biriymişsin",
             "cache_status": "💾 Önbellek Durumu",
             "cache_active": "✅ Aktif",
@@ -207,6 +208,7 @@ def get_system_text(language_code: str) -> Dict[str, str]:
 
             
             # Sidebar
+            "last_update":f"Lastly Updated: "+str(datetime.datetime.now())[:-7],
             "sidebar_title": "🔍 Okay, okay... Mr.Curious.",
             "cache_status": "💾 Cache Status",
             "cache_active": "✅ Active",
@@ -1428,7 +1430,7 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
     system_text = get_system_text(language.value)
     
     with st.sidebar:
-        st.info("Lastly Updated: "+str(datetime.datetime.now())[:-7])
+        st.info(system_text["last_update"])
         st.markdown(f"### {system_text['sidebar_title']}")
         st.markdown("- **Embeddings**: text-embedding-004")
         st.markdown("- **Generation**: gemini-2.5-flash-lite-preview-06-17")
