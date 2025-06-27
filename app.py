@@ -1,4 +1,3 @@
-
 import streamlit as st
 import os
 import numpy as np
@@ -14,6 +13,10 @@ from google import genai
 from google.genai import types
 import time
 import datetime 
+import uuid
+from supabase import create_client, Client
+import streamlit.components.v1 as components
+
 # Import tools and components
 from tools.email_tool import EmailTool
 from tools.social_media_tool import SocialMediaAggregator
@@ -22,6 +25,331 @@ from ui.email_components import get_ui_text, render_email_verification_card, ren
 
 load_dotenv()
 
+class BugReportManager:
+    """Handle bug report submissions to Supabase"""
+    
+    def __init__(self):
+        self.supabase_url = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+        self.supabase_key = st.secrets.get("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON_KEY")
+        self.client: Optional[Client] = None
+        self.configured = False
+        
+        if self.supabase_url and self.supabase_key:
+            try:
+                self.client = create_client(self.supabase_url, self.supabase_key)
+                self.configured = True
+            except Exception as e:
+                st.error(f"Failed to initialize Supabase: {e}")
+                self.configured = False
+    
+    def _prepare_chat_history(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Prepare chat history for storage (limit size and clean data)"""
+        # Son 10 mesajı al
+        recent_messages = messages[-10:] if len(messages) > 10 else messages
+        
+        # Her mesajı temizle ve boyutunu sınırla
+        cleaned_messages = []
+        for msg in recent_messages:
+            content = msg.get('content', '')
+            # İçeriği 500 karakterle sınırla
+            if len(content) > 500:
+                content = content[:497] + "..."
+            
+            cleaned_messages.append({
+                'role': msg.get('role', 'unknown'),
+                'content': content,
+                'timestamp': datetime.datetime.now().isoformat()
+            })
+        
+        return cleaned_messages
+    
+    def submit_bug_report(self, description: str, language: str = "en") -> Dict[str, Any]:
+        """Submit a bug report to Supabase"""
+        if not self.configured:
+            return {"success": False, "message": "Bug reporting not configured"}
+        
+        try:
+            # Get session info
+            session_id = st.session_state.get('session_id', str(uuid.uuid4()))
+            if 'session_id' not in st.session_state:
+                st.session_state.session_id = session_id
+            
+            # Sohbet geçmişini hazırla
+            chat_history = self._prepare_chat_history(
+                st.session_state.get('messages', [])
+            )
+
+            
+            # Prepare bug report data
+            bug_data = {
+                "user_session_id": session_id,
+                "description": description.strip(),
+                "chat_history": chat_history,  # JSON olarak sakla
+                "language": language,
+                "page_url": "Portfolio RAG Chatbot",
+                "status": "open",
+            }
+            
+            # Insert into Supabase
+            result = self.client.table('bug_reports').insert(bug_data).execute()
+            
+            if result.data:
+                return {
+                    "success": True, 
+                    "message": "Bug report submitted successfully",
+                    "report_id": result.data[0]['id']
+                }
+            else:
+                return {"success": False, "message": "Failed to submit bug report"}
+                
+        except Exception as e:
+            return {"success": False, "message": f"Error submitting bug report: {str(e)}"}
+
+
+def get_bug_svg():
+    """Return SVG icon for bug report button"""
+    return """
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M19.5 11.5C19.78 11.17 20.03 10.8 20.24 10.4L22 11.4L21.5 12.3L20.04 11.46C20.13 11.97 20.17 12.5 20.17 13.03H22V14.03H20.17C20.17 14.56 20.13 15.09 20.04 15.6L21.5 16.44L21 17.34L19.24 16.34C19.03 16.74 18.78 17.09 18.5 17.42V20H17.5V17.84C17.09 18.03 16.65 18.17 16.2 18.27L16.6 19.72L15.65 20L15.25 18.55C14.84 18.63 14.42 18.67 14 18.67C13.58 18.67 13.16 18.63 12.75 18.55L12.35 20L11.4 19.72L11.8 18.27C11.35 18.17 10.91 18.03 10.5 17.84V20H9.5V17.42C9.22 17.09 8.97 16.74 8.76 16.34L7 17.34L6.5 16.44L7.96 15.6C7.87 15.09 7.83 14.56 7.83 14.03H6V13.03H7.83C7.83 12.5 7.87 11.97 7.96 11.46L6.5 10.6L7 9.7L8.76 10.7C8.97 10.3 9.22 9.95 9.5 9.62V7H10.5V9.2C10.91 9.01 11.35 8.87 11.8 8.77L11.4 7.32L12.35 7.04L12.75 8.49C13.16 8.41 13.58 8.37 14 8.37C14.42 8.37 14.84 8.41 15.25 8.49L15.65 7.04L16.6 7.32L16.2 8.77C16.65 8.87 17.09 9.01 17.5 9.2V7H18.5V9.62C18.78 9.95 19.03 10.3 19.24 10.7L21 9.7L21.5 10.6L20.04 11.46M14 16C15.66 16 17 14.66 17 13S15.66 10 14 10 11 11.34 11 13 12.34 16 14 16M14 12C14.55 12 15 12.45 15 13S14.55 14 14 14 13 13.55 13 13 13.45 12 14 12Z"/>
+    </svg>
+    """
+
+
+def render_compact_bug_button():
+    """More reliable compact bug report button"""
+    # Detect language
+    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+    button_text = "Hata Bildir" if language == Language.TURKISH else "Bug Report"
+    
+    # Custom CSS for positioning and styling
+    st.markdown("""
+        <style>
+        /* Target the specific column containing the bug button */
+        div[data-testid="column"]:has(.compact-bug-btn) {
+            position: fixed !important;
+            top: 70px !important;
+            right: 20px !important;
+            left: auto !important;
+            z-index: 999999 !important;
+            width: auto !important;
+            max-width: 120px !important;
+        }
+        
+        .compact-bug-btn {
+            display: flex !important;
+            justify-content: flex-end !important;
+            width: 100% !important;
+        }
+        
+        .compact-bug-btn button {
+            background: linear-gradient(45deg, #ff4444, #cc3333) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            min-height: 28px !important;
+            height: 28px !important;
+            width: auto !important;
+            min-width: 80px !important;
+            max-width: 120px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            transition: all 0.2s ease !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+        
+        .compact-bug-btn button:hover {
+            background: linear-gradient(45deg, #cc3333, #aa2222) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15) !important;
+        }
+        
+        .compact-bug-btn button div {
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            justify-content: center !important;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            div[data-testid="column"]:has(.compact-bug-btn) {
+                right: 10px !important;
+                top: 60px !important;
+            }
+            
+            .compact-bug-btn button {
+                font-size: 10px !important;
+                padding: 3px 6px !important;
+                min-width: 70px !important;
+                max-width: 100px !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            div[data-testid="column"]:has(.compact-bug-btn) {
+                right: 5px !important;
+                top: 50px !important;
+            }
+            
+            .compact-bug-btn button {
+                font-size: 9px !important;
+                padding: 2px 4px !important;
+                min-width: 60px !important;
+                max-width: 80px !important;
+                min-height: 24px !important;
+                height: 24px !important;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Create positioned container using columns
+    col1, col2, col3 = st.columns([16, 1, 4])
+    with col3:
+        st.markdown('<div class="compact-bug-btn">', unsafe_allow_html=True)
+        if st.button(f"🐛{button_text}", key="bug_report_btn", help="Report a bug"):
+            st.session_state.show_bug_report = True
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_bug_report_modal():
+    """Render bug report modal when button is clicked"""
+    if not st.session_state.get("show_bug_report", False):
+        return
+    
+    # Detect language
+    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+    
+    # Get text based on language
+    bug_text = {
+        "en": {
+            "title": "🐛 Report a Bug",
+            "description_label": "Please describe the bug or issue:",
+            "description_help":"The more details you provide, the better we can help fix the issue.",
+            "description_placeholder": "Describe what went wrong, what you expected to happen, and any steps to reproduce the issue...",
+            "submit": "Submit Report",
+            "cancel": "Cancel",
+            "success": "✅ Thank you! Your bug report has been submitted successfully. Our team will review it soon.",
+            "error": "❌ Failed to submit bug report. Please try again.",
+            "empty_error": "Please provide a description of the bug.",
+            "submitting": "Submitting bug report...",
+            "chat_info": "💬 Your recent chat history will be included to help us understand the context."
+        },
+        "tr": {
+            "title": "🐛 Hata Bildirimi",
+            "description_label": "Lütfen hata veya sorunu açıklayın:",
+            "description_placeholder": "Neyin yanlış gittiğini, ne beklediğinizi ve sorunu yeniden oluşturma adımlarını açıklayın...",
+            "description_help":"Verdiğiniz her detay, sorunu çözmemizi kolaylaştıracaktır.",
+            "submit": "Raporu Gönder",
+            "cancel": "İptal",
+            "success": "✅ Teşekkürler! Hata raporunuz başarıyla gönderildi. Ekibimiz en kısa sürede inceleyecek.",
+            "error": "❌ Hata raporu gönderilemedi. Lütfen tekrar deneyin.",
+            "empty_error": "Lütfen hatanın açıklamasını girin.",
+            "submitting": "Hata raporu gönderiliyor...",
+            "chat_info": "💬 Bağlamı anlamamıza yardımcı olması için son sohbet geçmişiniz de dahil edilecek."
+        }
+    }
+    
+    text = bug_text.get(language.value, bug_text["en"])
+    
+    # Create the modal with overlay effect
+    st.markdown("""
+        <style>
+        .bug-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999998;
+        }
+        .bug-modal {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Create the modal
+    with st.container():
+        st.markdown("---")
+        st.markdown(f"### {text['title']}")
+        
+        # Show chat history info
+        if st.session_state.get("messages"):
+            st.info(text["chat_info"])
+            
+            # Show preview of last few messages
+            with st.expander("Son mesajları önizle / Preview recent messages", expanded=False):
+                recent_msgs = st.session_state.messages[-3:] if len(st.session_state.messages) > 3 else st.session_state.messages
+                for i, msg in enumerate(recent_msgs):
+                    role_emoji = "🧑" if msg['role'] == 'user' else "🤖"
+                    content = msg['content'][:100] + "..." if len(msg['content']) > 100 else msg['content']
+                    st.text(f"{role_emoji} {content}")
+        
+        with st.form("bug_report_form", clear_on_submit=True):
+            bug_description = st.text_area(
+                text["description_label"],
+                placeholder=text["description_placeholder"],
+                height=150,
+                help=text["description_help"]
+            )
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                submitted = st.form_submit_button(
+                    text["submit"],
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            with col2:
+                cancelled = st.form_submit_button(
+                    text["cancel"],
+                    use_container_width=True
+                )
+            
+            # Handle form submission
+            if submitted:
+                if bug_description.strip():
+                    # Initialize bug report manager
+                    if 'bug_manager' not in st.session_state:
+                        st.session_state.bug_manager = BugReportManager()
+                    
+                    bug_manager = st.session_state.bug_manager
+                    
+                    if bug_manager.configured:
+                        with st.spinner(text["submitting"]):
+                            result = bug_manager.submit_bug_report(
+                                bug_description, 
+                                language.value
+                            )
+                        
+                        if result["success"]:
+                            st.success(text["success"])
+                            st.session_state.show_bug_report = False
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(f"{text['error']} ({result['message']})")
+                    else:
+                        st.error("Bug reporting service is not available. Please contact support directly.")
+                else:
+                    st.error(text["empty_error"])
+            
+            if cancelled:
+                st.session_state.show_bug_report = False
+                st.rerun()
 
 class AppConstants:
     """Application-wide constants"""
@@ -143,7 +471,7 @@ def get_system_text(language_code: str) -> Dict[str, str]:
             "error_generating_response": "Yanıt oluşturulurken hata: {error}. API yanıtı boş veya geçersiz olabilir. Lütfen birkaç saniye sonra tekrar deneyin.",
             "embeddings_not_available": "Embeddings mevcut değil",
             "query_process_failed": "Sorgu işlenemedi",
-            "no_response_generated": "Yanıt oluşturulamadı",
+            "no_response_generated": "Yanıt oluşturulamadı, lütfen birazdan tekrar deneyin.",
             "api_not_configured": "Gemini API yapılandırılmamış"
         }
     else:  # English
@@ -233,7 +561,7 @@ def get_system_text(language_code: str) -> Dict[str, str]:
             "error_generating_response": "Error generating response: {error}. The API response might have been empty or invalid. Please wait a moment and try again.",
             "embeddings_not_available": "Embeddings not available",
             "query_process_failed": "Could not process query",
-            "no_response_generated": "No response generated",
+            "no_response_generated": "No response generated, please try again in a moment.",
             "api_not_configured": "Gemini API not configured"
         }
 
@@ -1707,7 +2035,10 @@ def main():
         layout="centered",
         initial_sidebar_state="collapsed"
     )
-
+    render_compact_bug_button()
+    
+    # Render bug report modal if needed
+    render_bug_report_modal()
     
     # Expandable welcome message
     with st.expander("🤖 **What can I help you with? | Size nasıl yardımcı olabilirim?**", expanded=True):
@@ -1715,7 +2046,7 @@ def main():
         **🔧 Advanced Features | Gelişmiş Özellikler**
         - 📧 ****Contact Selman**** - I'll prepare emails for you | Sizin için e-posta hazırlayabilirim.
         - 📊 **Job Analysis** - Paste job description for compatibility report, just ask for PDF for downloadable document.| Bana iş tanımı verin, size Selman'ın role uygunluğunu raporlayayım. Raporu indirmek için PDF istemeniz yeterli.
-        - 📱 **Social Updates** - Recent posts and articles | Sosyal medya güncellemeleri
+        - 📱 **Social Updates** - I can bring you his recent posts and articles | Sosyal medya güncellemelerini gösterebilirim
         """)
 
     
