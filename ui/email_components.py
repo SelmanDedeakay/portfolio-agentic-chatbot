@@ -195,7 +195,7 @@ def render_email_editor_card(email_data: Dict[str, str], language: str):
             col1, col2 = st.columns([1, 1])
             
             with col1:
-                if st.form_submit_button(ui_text["save_button"], type="primary"):
+                if st.form_submit_button(ui_text["save_button"], type="primary",use_container_width=True):
                     # Update email data
                     st.session_state.pending_email = {
                         'sender_name': sender_name,
@@ -208,7 +208,7 @@ def render_email_editor_card(email_data: Dict[str, str], language: str):
                     st.rerun()
             
             with col2:
-                if st.form_submit_button(ui_text["cancel_edit_button"]):
+                if st.form_submit_button(ui_text["cancel_edit_button"],use_container_width=True):
                     st.session_state.editing_email = False
                     st.session_state.email_action = None
                     st.rerun()
