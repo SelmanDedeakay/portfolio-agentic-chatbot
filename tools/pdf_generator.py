@@ -429,14 +429,14 @@ class EnhancedStyleManager:
             borderPadding=0
         ))
 
-        # Section headings with enhanced styling
+        # Section headings with CONTROLLED spacing
         self.styles.add(ParagraphStyle(
             name='EnhancedSectionHeading',
             parent=self.styles['Heading2'],
             fontSize=16,
             leading=20,
-            spaceBefore=20,
-            spaceAfter=12,
+            spaceBefore=10,  # DÜZELTME: Küçültüldü (20'den 10'a)
+            spaceAfter=8,    # DÜZELTME: Küçültüldü (12'den 8'e)
             textColor=self.color_scheme.primary,
             fontName=self.fonts['bold'],
             borderWidth=0,
@@ -449,8 +449,8 @@ class EnhancedStyleManager:
             parent=self.styles['Heading3'],
             fontSize=12,
             leading=16,
-            spaceBefore=12,
-            spaceAfter=8,
+            spaceBefore=8,   # DÜZELTME: Küçültüldü (12'den 8'e)
+            spaceAfter=6,    # DÜZELTME: Küçültüldü (8'den 6'ya)
             textColor=self.color_scheme.text_primary,
             fontName=self.fonts['bold'],
             leftIndent=15,
@@ -463,8 +463,8 @@ class EnhancedStyleManager:
             parent=self.styles['Normal'],
             fontSize=11,
             leading=16,
-            spaceBefore=4,
-            spaceAfter=8,
+            spaceBefore=3,   # DÜZELTME: Küçültüldü (4'ten 3'e)
+            spaceAfter=6,    # DÜZELTME: Küçültüldü (8'den 6'ya)
             leftIndent=20,
             rightIndent=20,
             alignment=TA_JUSTIFY,
@@ -478,7 +478,7 @@ class EnhancedStyleManager:
             parent=self.styles['Normal'],
             fontSize=11,
             leading=15,
-            spaceAfter=6,
+            spaceAfter=4,    # DÜZELTME: Küçültüldü (6'dan 4'e)
             leftIndent=35,
             bulletIndent=25,
             fontName=self.fonts['default'],
@@ -491,8 +491,8 @@ class EnhancedStyleManager:
             parent=self.styles['Normal'],
             fontSize=10,
             leading=14,
-            spaceBefore=10,
-            spaceAfter=10,
+            spaceBefore=8,   # DÜZELTME: Küçültüldü (10'dan 8'e)
+            spaceAfter=8,    # DÜZELTME: Küçültüldü (10'dan 8'e)
             leftIndent=25,
             rightIndent=25,
             backColor=self.color_scheme.bg_accent,
@@ -836,11 +836,12 @@ class EnhancedPDFBuilder:
                 current_paragraph_lines = []
 
             if is_heading:
-                # Add spacing for sections
-                if section_count > 0 and section_count % 4 == 0:  # Page break every 4th section
-                    story.append(PageBreak())
-                elif section_count > 0:
-                    story.append(Spacer(1, 20))  # Extra space for other sections
+                # DÜZELTME: Sayfa geçişi mantığını değiştiriyoruz
+                # Sadece çok uzun raporlar için sayfa geçişi yap
+                if section_count > 0:
+                    # 5. bölümden önce büyük boşluk bırakma!
+                    # Sadece normal spacing ekle
+                    story.append(Spacer(1, 15))  # Küçük boşluk
                 
                 section_count += 1
                 self._add_enhanced_heading(story, stripped_line)
@@ -857,7 +858,6 @@ class EnhancedPDFBuilder:
         self._flush_paragraph_to_story(story, current_paragraph_lines)
 
         return story
-
 
     def _flush_paragraph_to_story(self, story: List[Any], paragraph_lines: List[str]):
         """Flush a collected paragraph to the main story with proper styling."""
@@ -885,8 +885,9 @@ class EnhancedPDFBuilder:
             ))
 
     def _add_enhanced_heading(self, story: List[Any], line: str):
-        """Add enhanced section heading"""
-        story.append(Spacer(1, 15))
+        """Add enhanced section heading with consistent spacing"""
+        # DÜZELTME: Başlık öncesi boşluğu sabitliyoruz
+        # story.append(Spacer(1, 15)) # Bu satırı kaldırıyoruz çünkü üstte ekliyoruz
 
         cleaned_heading = self._clean_heading(line)
         formatted_heading = self.content_parser.apply_rich_formatting(cleaned_heading)
@@ -896,7 +897,8 @@ class EnhancedPDFBuilder:
             self.style_manager.get_style('EnhancedSectionHeading')
         ))
 
-        story.append(HRFlowable(width="100%", thickness=1, color=self.color_scheme.border_light, spaceAfter=10))
+        # Başlık altına küçük bir çizgi ve boşluk
+        story.append(HRFlowable(width="100%", thickness=1, color=self.color_scheme.border_light, spaceAfter=8))
 
 
     def _add_enhanced_list_item(self, story: List[Any], line: str):
