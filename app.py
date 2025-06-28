@@ -13,6 +13,7 @@ from google.genai import types
 import time
 import datetime 
 import uuid
+import base64
 from supabase import create_client, Client
 # Import tools and components
 from tools.email_tool import EmailTool
@@ -63,7 +64,7 @@ class BugReportManager:
     def submit_bug_report(self, description: str, language: str = "en") -> Dict[str, Any]:
         """Submit a bug report to Supabase"""
         if not self.configured:
-            return {"success": False, "message": "Bug reporting not configured"}
+            return {"success": False, "message": "Bug reporting not configured" if language=="en" else "Hata raporlama sistemi hazır değil."}
         
         try:
             # Get session info
@@ -112,241 +113,6 @@ def get_bug_svg():
     """
 
 
-def render_compact_bug_button():
-    """More reliable compact bug report button"""
-    # Detect language
-    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-    button_text = "Hata Bildir" if language == Language.TURKISH else "Bug Report"
-    
-    # Custom CSS for positioning and styling
-    st.markdown("""
-        <style>
-        /* Target the specific column containing the bug button */
-        div[data-testid="column"]:has(.compact-bug-btn) {
-            position: fixed !important;
-            top: 70px !important;
-            right: 20px !important;
-            left: auto !important;
-            z-index: 999999 !important;
-            width: auto !important;
-            max-width: 120px !important;
-        }
-        
-        .compact-bug-btn {
-            display: flex !important;
-            justify-content: flex-end !important;
-            width: 100% !important;
-        }
-        
-        .compact-bug-btn button {
-            background: linear-gradient(45deg, #ff4444, #cc3333) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 6px !important;
-            padding: 4px 8px !important;
-            font-size: 11px !important;
-            font-weight: 500 !important;
-            min-height: 28px !important;
-            height: 28px !important;
-            width: auto !important;
-            min-width: 80px !important;
-            max-width: 120px !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-            transition: all 0.2s ease !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-        }
-        
-        .compact-bug-btn button:hover {
-            background: linear-gradient(45deg, #cc3333, #aa2222) !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.15) !important;
-        }
-        
-        .compact-bug-btn button div {
-            display: flex !important;
-            align-items: center !important;
-            gap: 4px !important;
-            justify-content: center !important;
-        }
-        
-        /* Responsive design */
-        @media (max-width: 768px) {
-            div[data-testid="column"]:has(.compact-bug-btn) {
-                right: 10px !important;
-                top: 60px !important;
-            }
-            
-            .compact-bug-btn button {
-                font-size: 10px !important;
-                padding: 3px 6px !important;
-                min-width: 70px !important;
-                max-width: 100px !important;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            div[data-testid="column"]:has(.compact-bug-btn) {
-                right: 5px !important;
-                top: 50px !important;
-            }
-            
-            .compact-bug-btn button {
-                font-size: 9px !important;
-                padding: 2px 4px !important;
-                min-width: 60px !important;
-                max-width: 80px !important;
-                min-height: 24px !important;
-                height: 24px !important;
-            }
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    # Create positioned container using columns
-    col1, col2, col3 = st.columns([16, 1, 4])
-    with col3:
-        st.markdown('<div class="compact-bug-btn">', unsafe_allow_html=True)
-        if st.button(f"🐛{button_text}", key="bug_report_btn", help="Report a bug"):
-            st.session_state.show_bug_report = True
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-
-def render_bug_report_modal():
-    """Render bug report modal when button is clicked"""
-    if not st.session_state.get("show_bug_report", False):
-        return
-    
-    # Detect language
-    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-    
-    # Get text based on language
-    bug_text = {
-        "en": {
-            "title": "🐛 Report a Bug",
-            "description_label": "Please describe the bug or issue:",
-            "description_help":"The more details you provide, the better we can help fix the issue.",
-            "description_placeholder": "Describe what went wrong, what you expected to happen, and any steps to reproduce the issue...",
-            "submit": "Submit Report",
-            "cancel": "Cancel",
-            "success": "✅ Thank you! Your bug report has been submitted successfully. Our team will review it soon.",
-            "error": "❌ Failed to submit bug report. Please try again.",
-            "empty_error": "Please provide a description of the bug.",
-            "submitting": "Submitting bug report...",
-            "chat_info": "💬 Your recent chat history will be included to help us understand the context."
-        },
-        "tr": {
-            "title": "🐛 Hata Bildirimi",
-            "description_label": "Lütfen hata veya sorunu açıklayın:",
-            "description_placeholder": "Neyin yanlış gittiğini, ne beklediğinizi ve sorunu yeniden oluşturma adımlarını açıklayın...",
-            "description_help":"Verdiğiniz her detay, sorunu çözmemizi kolaylaştıracaktır.",
-            "submit": "Raporu Gönder",
-            "cancel": "İptal",
-            "success": "✅ Teşekkürler! Hata raporunuz başarıyla gönderildi. Ekibimiz en kısa sürede inceleyecek.",
-            "error": "❌ Hata raporu gönderilemedi. Lütfen tekrar deneyin.",
-            "empty_error": "Lütfen hatanın açıklamasını girin.",
-            "submitting": "Hata raporu gönderiliyor...",
-            "chat_info": "💬 Bağlamı anlamamıza yardımcı olması için son sohbet geçmişiniz de dahil edilecek."
-        }
-    }
-    
-    text = bug_text.get(language.value, bug_text["en"])
-    
-    # Create the modal with overlay effect
-    st.markdown("""
-        <style>
-        .bug-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 999998;
-        }
-        .bug-modal {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    # Create the modal
-    with st.container():
-        st.markdown("---")
-        st.markdown(f"### {text['title']}")
-        
-        # Show chat history info
-        if st.session_state.get("messages"):
-            st.info(text["chat_info"])
-            
-            # Show preview of last few messages
-            with st.expander("Son mesajları önizle / Preview recent messages", expanded=False):
-                recent_msgs = st.session_state.messages[-3:] if len(st.session_state.messages) > 3 else st.session_state.messages
-                for i, msg in enumerate(recent_msgs):
-                    role_emoji = "🧑" if msg['role'] == 'user' else "🤖"
-                    content = msg['content'][:100] + "..." if len(msg['content']) > 100 else msg['content']
-                    st.text(f"{role_emoji} {content}")
-        
-        with st.form("bug_report_form", clear_on_submit=True):
-            bug_description = st.text_area(
-                text["description_label"],
-                placeholder=text["description_placeholder"],
-                height=150,
-                help=text["description_help"]
-            )
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                submitted = st.form_submit_button(
-                    text["submit"],
-                    use_container_width=True,
-                    type="primary"
-                )
-            
-            with col2:
-                cancelled = st.form_submit_button(
-                    text["cancel"],
-                    use_container_width=True
-                )
-            
-            # Handle form submission
-            if submitted:
-                if bug_description.strip():
-                    # Initialize bug report manager
-                    if 'bug_manager' not in st.session_state:
-                        st.session_state.bug_manager = BugReportManager()
-                    
-                    bug_manager = st.session_state.bug_manager
-                    
-                    if bug_manager.configured:
-                        with st.spinner(text["submitting"]):
-                            result = bug_manager.submit_bug_report(
-                                bug_description, 
-                                language.value
-                            )
-                        
-                        if result["success"]:
-                            st.success(text["success"])
-                            st.session_state.show_bug_report = False
-                            time.sleep(2)
-                            st.rerun()
-                        else:
-                            st.error(f"{text['error']} ({result['message']})")
-                    else:
-                        st.error("Bug reporting service is not available. Please contact support directly.")
-                else:
-                    st.error(text["empty_error"])
-            
-            if cancelled:
-                st.session_state.show_bug_report = False
-                st.rerun()
 
 class AppConstants:
     """Application-wide constants"""
@@ -1320,8 +1086,7 @@ class GeminiEmbeddingRAG:
     def _build_prompt(self, query: str, context: str, language: Language, recent_context: str) -> str:
         """Build appropriate prompt based on language"""
         if language == Language.TURKISH:
-            return f"""Sen Selman Dedeakayoğulları'nın AI portföy asistanısın. Portföy web sitesine yerleştiriliyorsun. Ziyaretçiler sana sorular soracak.
-
+            return f"""Sen Selman Dedeakayoğulları'nın AI portföy asistanısın. Portföy web sitesine yerleştiriliyorsun. Ziyaretçiler sana sorular soracak. ASLA GEMINI KULLANDIĞINDAN YA DA GOOGLE TARAFINDAN GELİŞTİRİLDİĞİNDEN BAHSETME.
     Kurallar:
     - SADECE TÜRKÇE yanıtla
     - CV soruları için yalnızca sağlanan bağlamdan bilgi kullan
@@ -1334,11 +1099,11 @@ class GeminiEmbeddingRAG:
 
     EMAIL KURALLARI - ÇOK ÖNEMLİ:
     - Birisi Selman ile iletişime geçmek istediğinde, prepare_email aracını KULLANMADAN ÖNCE şu bilgilerin TAMAMINI toplayın:
-    1. Gönderenin tam adı (ad ve soyad gerekli)
+    1. Gönderenin tam adı (ad ve soyad gerekli.)
     2. Gönderenin e-posta adresi
     3. Mesaj içeriği
     - Bu bilgilerden HERHANGİ BİRİ eksikse, önce eksik bilgileri isteyin
-    - Örnek: "E-posta gönderebilmem için adınızı ve e-posta adresinizi öğrenebilir miyim?"
+    - Örnek: "E-posta gönderebilmem için adınızı, soyadınızı ve e-posta adresinizi öğrenebilir miyim?"
     - TÜM bilgiler toplandıktan SONRA prepare_email aracını kullanın
 
     İŞ UYUMLULUK ANALİZİ KURALLARI - ÇOK ÖNEMLİ:
@@ -1352,7 +1117,7 @@ class GeminiEmbeddingRAG:
     - Bir kullanıcı hem analiz hem de PDF isterse, önce analyze_job_compatibility aracını çağır, sonra generate_compatibility_pdf aracını otomatik olarak çağır.
     - PDF oluşturmadan önce kullanıcıdan onay isteme, direkt oluştur.
     DİĞER ARAÇLAR:
-    - Birisi Selman'ın son gönderileri, makaleleri, Medium içeriği, LinkedIn etkinliği veya sosyal medyası hakkında soru sorduğunda get_recent_posts aracını kullanın
+    - Birisi Selman'ın son gönderileri, makaleleri, Medium içeriği veya sosyal medyası hakkında soru sorduğunda get_recent_posts aracını kullanın
     - Kullanıcı PDF istediğinde, indirdiğinde veya iş uyumluluk raporunu kaydetmek istediğinde generate_compatibility_pdf aracını kullanın
 
     Son Konuşma Bağlamı:
@@ -1364,7 +1129,7 @@ class GeminiEmbeddingRAG:
     Kullanıcı Sorusu: {query}
     Yanıt:"""
         else:
-            return f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You are embedded in his portfolio website. Visitors will ask questions to you.
+            return f"""You are Selman Dedeakayoğulları's AI portfolio assistant. You are embedded in his portfolio website. Visitors will ask questions to you. NEVER MENTION YOU USE GEMINI OR DEVELOPED BY GOOGLE.
 
     Rules:
     - Respond ONLY in ENGLISH
@@ -1394,7 +1159,7 @@ class GeminiEmbeddingRAG:
     - If user doesn't specify language preference, default to English
 
     OTHER TOOLS:
-    - Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content, LinkedIn activity, or social media
+    - Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content or social media
     - Use generate_compatibility_pdf tool when user asks for PDF, download, or wants to save the job compatibility report
 
     Recent Conversation Context:
@@ -1593,7 +1358,11 @@ class ChatInterface:
             return
         
         action = st.session_state.email_action
-        language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+        # Session state'deki mevcut dili kullan
+        if 'current_language' in st.session_state:
+            language = st.session_state.current_language
+        else:
+            language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
         ui_text = get_ui_text(language.value)
         
         if action == "send":
@@ -1650,7 +1419,11 @@ class ChatInterface:
     
     def display_messages(self) -> None:
         """Display chat messages with special handling for emails"""
-        language = LanguageDetector.detect_from_messages(st.session_state.messages)
+        # Session state'deki mevcut dili kullan
+        if 'current_language' in st.session_state:
+            language = st.session_state.current_language
+        else:
+            language = LanguageDetector.detect_from_messages(st.session_state.messages)
         ui_text = get_ui_text(language.value)
         
         for i, message in enumerate(st.session_state.messages):
@@ -1690,6 +1463,9 @@ class ChatInterface:
         with st.chat_message("user"):
             st.write(prompt)
         
+        # Önceki dil durumunu kaydet
+        previous_language = st.session_state.get('current_language', Language.ENGLISH)
+        
         # Check if user is requesting a report in a specific language
         requested_language = None
         prompt_lower = prompt.lower()
@@ -1703,6 +1479,7 @@ class ChatInterface:
                 requested_language = Language.TURKISH
                 # Store the requested language preference
                 st.session_state.preferred_language = Language.TURKISH
+                st.session_state.current_language = Language.TURKISH
                 break
         
         if not requested_language:
@@ -1711,15 +1488,20 @@ class ChatInterface:
                     requested_language = Language.ENGLISH
                     # Store the requested language preference
                     st.session_state.preferred_language = Language.ENGLISH
+                    st.session_state.current_language = Language.ENGLISH
                     break
         
-        # Detect language for UI - use requested language or stored preference if available
-        if requested_language:
-            language = requested_language
-        elif hasattr(st.session_state, 'preferred_language'):
-            language = st.session_state.preferred_language
+        # Eğer dil indicator'ı yoksa, mevcut mesajdan dil algıla ve güncelle
+        if not requested_language:
+            detected_language = LanguageDetector.detect_from_messages(st.session_state.messages)
+            st.session_state.current_language = detected_language
+            language = detected_language
         else:
-            language = LanguageDetector.detect_from_messages(st.session_state.messages)
+            language = requested_language
+        
+        # Dil değişimini kontrol et
+        current_language = st.session_state.get('current_language', Language.ENGLISH)
+        language_changed = (previous_language != current_language)
         
         system_text = get_system_text(language.value)
         
@@ -1763,11 +1545,19 @@ class ChatInterface:
                     "role": "assistant", 
                     "content": response
                 })
+        
+        # Dil değiştiyse sayfayı yenile
+        if language_changed:
+            st.rerun()
+
 
 def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
     """Render sidebar with system information and cache controls"""
-    # Detect language for sidebar
-    language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+    # Session state'deki mevcut dili kullan
+    if 'current_language' in st.session_state:
+        language = st.session_state.current_language
+    else:
+        language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
     system_text = get_system_text(language.value)
     
     with st.sidebar:
@@ -1794,13 +1584,13 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
                 # Cache actions
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button(system_text["cache_refresh"], help=system_text["cache_refresh_help"]):
+                    if st.button(system_text["cache_refresh"], help=system_text["cache_refresh_help"],use_container_width=True):
                         rag_system.clear_cache()
                         rag_system.load_cv()
                         st.rerun()
                 
                 with col2:
-                    if st.button(system_text["cache_clear_btn"], help=system_text["cache_clear_help"]):
+                    if st.button(system_text["cache_clear_btn"], help=system_text["cache_clear_help"],use_container_width=True):
                         rag_system.clear_cache()
                         st.success(system_text["cache_cleared_success"])
                         st.rerun()
@@ -1808,7 +1598,7 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
                 st.markdown(f"- **Status**: {system_text['cache_no_cache']}")
         
         # Chunk viewer
-        if st.button(system_text["view_chunks"]):
+        if st.button(system_text["view_chunks"],use_container_width=True):
             st.session_state.show_chunks = not st.session_state.get("show_chunks", False)
         
         if st.session_state.get("show_chunks", False):
@@ -1827,23 +1617,26 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
             st.markdown(f"- **Job Analyzer**: {'✅' if rag_system.tool_definitions.job_compatibility_analyzer else '❌'}")
 
 
-import streamlit as st
-import base64, uuid
 
 def render_pdf_download() -> None:
     # PDF henüz yoksa çık
     if not {"pdf_data", "pdf_filename"} <= st.session_state.keys():
         return
 
+    # Session state'deki mevcut dili kullan
+    if 'current_language' in st.session_state:
+        lang = st.session_state.current_language
+    else:
+        lang = LanguageDetector.detect_from_messages(
+            st.session_state.get("messages", [])
+        )
+    
     # ---------------- 1) Veriler --------------------------
     pdf_bytes = st.session_state.pdf_data
     file_name = st.session_state.pdf_filename
     b64_pdf   = base64.b64encode(pdf_bytes).decode()
 
     # ---------------- 2) Dil başlıkları -------------------
-    lang = LanguageDetector.detect_from_messages(
-        st.session_state.get("messages", [])
-    )
     system_text = get_system_text(lang.value)
     
     # ---------------- 3) Başlık + indirme -----------------
@@ -1920,8 +1713,159 @@ def render_email_form_for_pdf(pdf_bytes: bytes, filename: str, language: Languag
         if cancelled:
             st.session_state.show_email_form = False
             st.rerun()
+def render_header_popovers():
+    """Render functionality and bug report popovers in header"""
+    # Önce mevcut tüm mesajlardan dil algıla
+    current_messages = st.session_state.get("messages", [])
+    detected_language = LanguageDetector.detect_from_messages(current_messages)
+    
+    # Session state'deki dili güncelle
+    st.session_state.current_language = detected_language
+    language = detected_language
+    
+    # Create two columns for popovers
+    col1, col2 = st.columns(2, gap=None)
+    
+    with col1:
+        # Functionalities popover
+        func_label = "🚀 Özellikler" if language == Language.TURKISH else "🚀 Features"
+        with st.popover(func_label, use_container_width=True):
+            if language == Language.TURKISH:
+                st.markdown("""
+                ### 📋 Mevcut Özellikler
+                
+                **📧 İletişime Geç** - Selman'a göndermek üzere sizin için bir e-posta hazırlayabilirim.
+                
+                **💼 İş Uyumu Raporu** - Size Selman'ın güncel özgeçmişine göre hazırlanmış bir işe uyumluluk raporu hazırlayabilirim.\\
+                Rapor için iş tanımını yapıştırmanız yeterli. PDF de isteyerek raporu indirebilirsiniz.
+                
+                **📱 Güncel Gönderiler** - Selman'ın son paylaşımlarını ve makalelerini gösterebilirim.
+                
+                **🎯 Daha fazla gelişmiş özellik yakında!**
+                """)
+            else:
+                st.markdown("""
+                ### 📋 Available Features
+                
+                **📧 Contact Selman** - I can prepare emails for you to send Selman.
+                
+                **💼 Job Compatibility Analysis** - I can make a job compatibility analysis based on Selman's recent CV.\\
+                Paste job description for compatibility report. Ask for a PDF to download the report
+                
+                **📱 Social Updates** - I can get you Selman's recent posts and articles.
+                
+                **🎯 More advanced Features coming soon!**
+                """)
+    
+    with col2:
+        # Bug report popover
+        bug_label = "🐛 Hata Bildir" if language == Language.TURKISH else "🐛 Bug Report"
+        with st.popover(bug_label, use_container_width=True):
+            # Bug report manager'ı başlat
+            if 'bug_manager' not in st.session_state:
+                st.session_state.bug_manager = BugReportManager()
+            
+            bug_manager = st.session_state.bug_manager
+            
+            # Bug report success state kontrolü
+            bug_success_key = f"bug_success_{language.value}"
+            if st.session_state.get(bug_success_key, False):
+                if language == Language.TURKISH:
+                    st.success("✅ Hata raporunuz başarıyla gönderildi! Teşekkür ederiz.")
+                    if st.button("Yeni Hata Bildir", key="new_bug_tr", use_container_width=True):
+                        st.session_state[bug_success_key] = False
+                        st.rerun()
+                else:
+                    st.success("✅ Bug report submitted successfully! Thank you.")
+                    if st.button("Report New Bug", key="new_bug_en", use_container_width=True):
+                        st.session_state[bug_success_key] = False
+                        st.rerun()
+                return
+            
+            if language == Language.TURKISH:
+                st.markdown("#### 🐛 Hata Bildirimi")
+                
+                # Bilgilendirme mesajı
+                st.info("ℹ️ **Gizlilik Notu:** Sorunu anlayabilmemiz için son 10 mesaj gönderilecektir.")
+                
+                # Form kullanarak widget state'ini yönet
+                with st.form(key="bug_form_tr", clear_on_submit=True):
+                    bug_description = st.text_area(
+                        "Karşılaştığınız hatayı detaylı olarak açıklayın:",
+                        placeholder="Lütfen hatayı mümkün olduğunca detaylı şekilde açıklayın...",
+                        height=100,
+                        help="Hatanın ne zaman ve nasıl oluştuğunu detaylı açıklayın"
+                    )
+                    
+                    # Submit button
+                    submitted = st.form_submit_button(
+                        "Hata Raporunu Gönder", 
+                        use_container_width=True,
+                        type="primary"
+                    )
+                    
+                    if submitted:
+                        if bug_description.strip():
+                            with st.spinner("Hata raporu gönderiliyor..."):
+                                result = bug_manager.submit_bug_report(bug_description.strip(), language.value)
+                            
+                            if result["success"]:
+                                st.session_state[bug_success_key] = True
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Hata raporu gönderilemedi: {result['message']}")
+                        else:
+                            st.warning("⚠️ Lütfen hata açıklaması girin.")
+                        
+            else:
+                st.markdown("###### 🐛 Bug Report")
+                
+                # Bilgilendirme mesajı
+                st.info("ℹ️ **Privacy Note:** This bug report includes your last 10 messages to help us find out the issue better.")
+                
+                # Form kullanarak widget state'ini yönet
+                with st.form(key="bug_form_en", clear_on_submit=True):
+                    bug_description = st.text_area(
+                        "Tell us the bug you faced in detail:",
+                        placeholder="Please tell us the bug as detailed as possible...",
+                        height=100,
+                        help="Please describe when and how the bug occurred in detail"
+                    )
+                    
+                    # Submit button
+                    submitted = st.form_submit_button(
+                        "Submit Bug Report", 
+                        use_container_width=True,
+                        type="primary"
+                    )
+                    
+                    if submitted:
+                        if bug_description.strip():
+                            with st.spinner("Submitting bug report..."):
+                                result = bug_manager.submit_bug_report(bug_description.strip(), language.value)
+                            
+                            if result["success"]:
+                                st.session_state[bug_success_key] = True
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Failed to submit bug report: {result['message']}")
+                        else:
+                            st.warning("⚠️ Please enter a bug description.")
 
-
+def render_welcome_message():
+    """Render welcome message after popovers"""
+    # Mevcut mesajlardan dil algıla ve session state'i güncelle
+    current_messages = st.session_state.get("messages", [])
+    detected_language = LanguageDetector.detect_from_messages(current_messages)
+    st.session_state.current_language = detected_language
+    
+    st.markdown("""
+    #### 👋 Merhaba! | Hello there!
+    
+    **Ben Selman'ın AI Portföy Asistanıyım. Nasıl yardımcı olabilirim?**
+    
+    **I'm Selman's AI Portfolio Assistant. How can I help you?**
+    """)
 def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, language: Language) -> bool:
     """Send PDF via email - simplified and reliable"""
     try:
@@ -2028,28 +1972,23 @@ def main():
     st.set_page_config(
         page_title="Selman DEDEAKAYOĞULLARI Portfolio RAG Chatbot",
         page_icon="🔍",
-        layout="centered",
+        layout="wide",
         initial_sidebar_state="collapsed"
     )
-    render_compact_bug_button()
     
-    # Render bug report modal if needed
-    render_bug_report_modal()
-    
-    # Expandable welcome message
-    with st.expander("🤖 **What can I help you with? | Size nasıl yardımcı olabilirim?**", expanded=True):
-        st.markdown("""
-        **🔧 Advanced Features | Gelişmiş Özellikler**
-        - 📧 ****Contact Selman**** - I'll prepare emails for you | Sizin için e-posta hazırlayabilirim.
-        - 📊 **Job Analysis** - Paste job description for compatibility report, just ask for PDF for downloadable document.| Bana iş tanımı verin, size Selman'ın role uygunluğunu raporlayayım. Raporu indirmek için PDF istemeniz yeterli.
-        - 📱 **Social Updates** - I can bring you his recent posts and articles | Sosyal medya güncellemelerini gösterebilirim
-        """)
-
-    
-    # Rest of the code remains the same...
     # Initialize session state
     initialize_session_state()
-
+    
+    # Dil değişikliği kontrolü
+    if 'language_changed_flag' in st.session_state:
+        del st.session_state.language_changed_flag
+        st.rerun()
+    
+    # Header popovers
+    render_header_popovers()
+    
+    # Welcome message
+    render_welcome_message()
     
     # Initialize RAG system
     if "rag_system" not in st.session_state:
@@ -2085,8 +2024,6 @@ def main():
     chat_interface.display_messages()
     
     # Chat input
-
-    
     if prompt := st.chat_input("💬"):
         chat_interface.process_user_input(prompt)
     
