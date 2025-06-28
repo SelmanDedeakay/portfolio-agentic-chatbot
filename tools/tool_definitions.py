@@ -97,13 +97,16 @@ class ToolDefinitions:
         """Get job compatibility analysis tool definition with language selection"""
         analyze_job_func = FunctionDeclaration(
             name="analyze_job_compatibility",
-            description="Analyze job compatibility between Selman's profile and a job description. Use this when someone provides a job posting or asks about fit for a specific role.",
+            description="""Analyze job compatibility between Selman's profile and a job description. 
+            IMPORTANT: Only use this tool when the user has PROVIDED A COMPLETE JOB DESCRIPTION (not just asking about it).
+            The job description should include actual job requirements, responsibilities, and qualifications.
+            Do NOT use this tool if the user is just asking how to use it or requesting an analysis without providing the job details.""",
             parameters={
                 "type": "object",
                 "properties": {
                     "job_description": {
                         "type": "string",
-                        "description": "The full job description text to analyze compatibility against"
+                        "description": "The COMPLETE job description text including requirements, responsibilities, qualifications. Must be at least 50 characters and contain actual job details, not just a request for analysis."
                     },
                     "report_language": {
                         "type": "string",
@@ -223,11 +226,35 @@ class ToolDefinitions:
                         "message": "Job compatibility analyzer not initialized"
                     }
 
-                job_description = tool_args.get('job_description', '')
+                job_description = tool_args.get('job_description', '').strip()
+                
+                # Enhanced validation - check for actual job content
                 if not job_description:
                     return {
                         "success": False,
-                        "message": "Job description is required"
+                        "message": "I need a job description to analyze. Please provide the full job posting or description."
+                    }
+                
+                # Check if it's too short to be a real job description
+                if len(job_description) < 50:  # Arbitrary but reasonable minimum
+                    return {
+                        "success": False,
+                        "message": "The job description seems too short. Please provide the complete job posting including requirements, responsibilities, and qualifications."
+                    }
+                
+                # Check if it's just a question or request without actual job content
+                question_indicators = ['can you', 'could you', 'please analyze', 'analyze this', 'check compatibility', 
+                                    'nasıl', 'analiz', 'uyumlu', 'bakar mısın', 'kontrol']
+                job_lower = job_description.lower()
+                
+                # If it's mostly a question/request without substantial content
+                word_count = len(job_description.split())
+                question_word_count = sum(1 for indicator in question_indicators if indicator in job_lower)
+                
+                if word_count < 20 and question_word_count > 0:
+                    return {
+                        "success": False,
+                        "message": "I see you want a job compatibility analysis, but I need the actual job description. Please paste the full job posting."
                     }
 
                 # Get report language from tool args (required parameter)

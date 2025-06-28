@@ -1132,15 +1132,18 @@ class GeminiEmbeddingRAG:
     - Örnek: <ad,soyad> "projelerinizle ilgili konuşalım" derse → "<ad,soyad> projeleriniz hakkında görüşme yapmak istiyor."
 
     İŞ UYUMLULUK ANALİZİ KURALLARI - ÇOK ÖNEMLİ:
-    - Birisi bir iş tanımı sağladığında veya belirli bir rol için uygunluk hakkında soru sorduğunda, analyze_job_compatibility aracını kullanmadan ÖNCE rapor dilini sor
-    - MUTLAKA şu soruyu sor: "Raporu Türkçe mi İngilizce mi istersiniz?"
-    - Kullanıcı cevapladıktan sonra analyze_job_compatibility aracını uygun dil parametresi ile çağır:
-    - Türkçe için: report_language: "tr"
-    - İngilizce için: report_language: "en"
-    - Kullanıcı dil tercihi belirtmezse, Türkçe olarak varsay
+    - Birisi bir iş tanımı SAĞLADIĞINDA (sadece analiz istemediğinde) analyze_job_compatibility aracını kullan
+    - ÖNCE şunu kontrol et: Kullanıcı gerçek bir iş ilanı mı verdi yoksa sadece analiz mi istiyor?
+    - Eğer sadece "iş uyumluluğu analizi yap" gibi bir istek varsa ve iş tanımı YOKSA, önce iş tanımını iste:
+    "Size yardımcı olabilmem için lütfen analiz etmemi istediğiniz iş ilanının tamamını paylaşır mısınız?"
+    - İş tanımı en az 50 karakter olmalı ve gerçek iş detayları içermeli
+    - İş tanımı aldıktan SONRA rapor dilini sor: "Raporu Türkçe mi İngilizce mi istersiniz?"
+    - Şirket adı belirtilmemişse MUTLAKA sor
+    
     ÖNEMLİ NOTLAR:
     - Bir kullanıcı hem analiz hem de PDF isterse, önce analyze_job_compatibility aracını çağır, sonra generate_compatibility_pdf aracını otomatik olarak çağır.
-    - PDF oluşturmadan önce kullanıcıdan onay isteme, direkt oluştur.
+
+    
     DİĞER ARAÇLAR:
     - Birisi Selman'ın son gönderileri, makaleleri, Medium içeriği veya sosyal medyası hakkında soru sorduğunda get_recent_posts aracını kullanın
     - Kullanıcı PDF istediğinde, indirdiğinde veya iş uyumluluk raporunu kaydetmek istediğinde generate_compatibility_pdf aracını kullanın
@@ -1177,14 +1180,18 @@ class GeminiEmbeddingRAG:
     - MESSAGE FORMATTING: Do not copy the user's message verbatim. Instead, reformulate and summarize it professionally from a third-person perspective.
     - Example: <name,surname> says "let's meet on June 3rd" → "<name,surname> would like to schedule a meeting on June 3rd."
     - Example: <name,surname> says "I want to discuss your projects" → "<name,surname> is interested in discussing your projects."
-
+    
     JOB COMPATIBILITY ANALYSIS RULES - VERY IMPORTANT:
-    - When someone provides a job description or asks about fit for a specific role, BEFORE using analyze_job_compatibility tool, ask for report language preference
-    - ALWAYS ask: "Would you like the report in English or Turkish?"
-    - After user responds, call analyze_job_compatibility tool with appropriate language parameter:
-    - For English: report_language: "en"
-    - For Turkish: report_language: "tr"
-    - If user doesn't specify language preference, default to English
+    - When someone PROVIDES a job description (not just asks for analysis), use analyze_job_compatibility tool
+    - FIRST check: Did the user provide an actual job posting or just request an analysis?
+    - If they only request "do job compatibility analysis" without a job description, ask for it first:
+    "I'd be happy to help! Please share the complete job posting you'd like me to analyze."
+    - Job description must be at least 50 characters and contain actual job details
+    - After receiving job description, ask for report language: "Would you like the report in English or Turkish?"
+    - If company name is not specified, ALWAYS ask for it
+    
+    IMPORTANT NOTES:
+    - If a user requests both analysis and PDF, first call the analyze_job_compatibility tool, then automatically call the generate_compatibility_pdf tool.
 
     OTHER TOOLS:
     - Use get_recent_posts tool when someone asks about Selman's recent posts, articles, Medium content or social media
@@ -1286,7 +1293,21 @@ class GeminiEmbeddingRAG:
         # Dil algılama
         messages = (conversation_history or []) + [{"role": "user", "content": query}]
         language = LanguageDetector.detect_from_messages(messages)
-        
+        job_analysis_keywords = {
+    'en': ['job compatibility', 'job analysis', 'analyze job', 'compatibility report'],
+    'tr': ['iş uyumu', 'iş analizi', 'uyumluluk raporu', 'iş uyumluluk']
+}
+
+# Check if user is asking for job analysis without providing a job
+        query_lower = query.lower()
+        is_job_request = any(keyword in query_lower for keyword in job_analysis_keywords.get(language.value, job_analysis_keywords['en']))
+
+        # If it's a job request but the message is too short to contain a real job description
+        if is_job_request and len(query) < 100:
+            if language == Language.TURKISH:
+                return "Memnuniyetle iş uyumluluk analizi yapabilirim! Lütfen analiz etmemi istediğiniz iş ilanının tamamını paylaşır mısınız? İlan metninde görev tanımı, gereksinimler ve nitelikler bulunmalıdır."
+            else:
+                return "I'd be happy to analyze job compatibility! Please share the complete job posting you'd like me to analyze. The posting should include job responsibilities, requirements, and qualifications."
         # PDF isteği kontrolü
         if any(kw in query.lower() for kw in pdf_keywords.get(language.value, pdf_keywords["en"])):
             st.session_state.auto_generate_pdf = True
