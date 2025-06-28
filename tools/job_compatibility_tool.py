@@ -15,17 +15,17 @@ class AnalysisConstants:
     DEFAULT_TEMPERATURE = 0.1
     ANALYSIS_TEMPERATURE = 0.2
     REPORT_TEMPERATURE = 0.3
-    MAX_OUTPUT_TOKENS = 12000
+    MAX_OUTPUT_TOKENS = 8000  # Reduced from 12000
     STOP_SEQUENCES = []
     
-    # Search limits - more generous
-    MAX_CHUNKS_PER_SEARCH = 6
-    MAX_TOTAL_CHUNKS = 15  # Increased to capture more information
-    GENERAL_SEARCH_CHUNKS = 4
+    # Search limits - more focused
+    MAX_CHUNKS_PER_SEARCH = 4  # Reduced from 6
+    MAX_TOTAL_CHUNKS = 10      # Reduced from 15
+    GENERAL_SEARCH_CHUNKS = 3  # Reduced from 4
     
     # Report generation
     MAX_RETRIES = 3
-    MIN_REPORT_LENGTH = 500
+    MIN_REPORT_LENGTH = 300    # Reduced from 500
 
 
 @dataclass
@@ -100,40 +100,32 @@ class JobCompatibilityAnalyzer:
             return default or {}
     
     def extract_job_requirements(self, job_description: str) -> JobRequirements:
-        """
-        Extract key requirements from job description using LLM.
-        
-        Args:
-            job_description: Raw job description text
-            
-        Returns:
-            JobRequirements object with extracted data
-        """
+        """Extract key requirements from job description using LLM."""
         if not job_description or not job_description.strip():
             st.error("Job description is empty")
             return JobRequirements()
         
         prompt = f"""Analyze this job description and extract key information in JSON format:
 
-Job Description:
-{job_description}
+    Job Description:
+    {job_description}
 
-Please extract and return a JSON with these fields:
-- position_title: Job title (string)
-- required_skills: List of ALL technical skills mentioned (be comprehensive, include ALL skills)
-- preferred_skills: List of ALL nice-to-have skills (include ALL mentioned)
-- experience_years: Required years of experience (number or "entry-level")
-- education_requirements: Education requirements (string)
-- key_responsibilities: ALL main job responsibilities (complete list)
-- company_info: Any company information mentioned (string)
-- location: Job location if mentioned (string)
-- industry: Industry/domain if identifiable (string)
-- soft_skills: ALL soft skills mentioned (complete list)
+    Extract and return JSON with these fields:
+    - position_title: Job title
+    - required_skills: Top 5-8 essential technical skills only
+    - preferred_skills: Top 3-5 nice-to-have skills only  
+    - experience_years: Required years of experience
+    - education_requirements: Education requirements
+    - key_responsibilities: Top 3-5 main responsibilities only
+    - company_info: Company information if mentioned
+    - location: Job location if mentioned
+    - industry: Industry/domain if identifiable
+    - soft_skills: Top 3-5 soft skills only
 
-IMPORTANT: 
-- Be COMPREHENSIVE - don't limit the number of skills, responsibilities, or requirements
-- Include ALL mentioned requirements, no matter how many there are
-- Return ONLY valid JSON without any markdown formatting or additional text."""
+    IMPORTANT: 
+    - Focus on ESSENTIAL requirements only
+    - Limit lists to most important items
+    - Return ONLY valid JSON without markdown formatting."""
 
         try:
             response = self.client.models.generate_content(
@@ -424,76 +416,49 @@ IMPORTANT:
         except Exception as e:
             return f"CV data available (formatting error: {e})"
     
-    def analyze_compatibility_with_llm(
-        self, 
-        job_requirements: JobRequirements, 
-        cv_context: str
-    ) -> Dict[str, Any]:
-        """
-        Enhanced LLM analysis with comprehensive evaluation - never fails.
-        """
+    def analyze_compatibility_with_llm(self, job_requirements: JobRequirements, cv_context: str) -> Dict[str, Any]:
+        """Enhanced LLM analysis with focused evaluation."""
         try:
-            # Convert JobRequirements to dict for JSON serialization
             requirements_dict = {
                 k: v for k, v in job_requirements.__dict__.items() 
-                if v  # Only include non-empty values
+                if v
             }
             
-            # Enhanced analysis prompt
-            analysis_prompt = f"""You are an expert HR analyst specializing in talent matching. 
-Analyze the compatibility between this job requirement and candidate profile with comprehensive attention to ALL requirements.
+            analysis_prompt = f"""Analyze compatibility between job requirements and candidate profile:
 
-CRITICAL INSTRUCTION: Evaluate ALL skills, responsibilities, and requirements. Do not skip any items due to length or complexity.
+    JOB REQUIREMENTS:
+    {json.dumps(requirements_dict, indent=2)}
 
-JOB REQUIREMENTS:
-{json.dumps(requirements_dict, indent=2)}
+    CANDIDATE PROFILE:
+    {cv_context}
 
-CANDIDATE PROFILE (from CV):
-{cv_context}
+    Return JSON with this structure:
+    {{
+        "overall_compatibility_score": <number 0-100>,
+        "skill_analysis": {{
+            "required_skills_match": <percentage 0-100>,
+            "matched_required_skills": [<matched skills>],
+            "missing_required_skills": [<missing skills>],
+            "preferred_skills_match": <percentage 0-100>,
+            "matched_preferred_skills": [<matched preferred skills>]
+        }},
+        "experience_analysis": {{
+            "meets_experience_requirement": <true/false>,
+            "relevant_experience_years": <number>,
+            "relevant_experiences": [<top 3 relevant experiences>],
+            "experience_quality_score": <0-100>
+        }},
+        "education_analysis": {{
+            "meets_education_requirement": <true/false>,
+            "education_relevance_score": <0-100>,
+            "relevant_education": [<relevant education items>]
+        }},
+        "strengths": [<top 4-5 strengths for this role>],
+        "weaknesses": [<top 2-3 development areas>],
+        "recommendations": [<3-4 actionable recommendations>]
+    }}
 
-Perform a comprehensive analysis and return a JSON response with this EXACT structure:
-{{
-    "overall_compatibility_score": <number 0-100>,
-    "skill_analysis": {{
-        "required_skills_match": <percentage 0-100>,
-        "matched_required_skills": [<list of ALL exactly matched required skills>],
-        "missing_required_skills": [<list of ALL required skills the candidate lacks>],
-        "preferred_skills_match": <percentage 0-100>,
-        "matched_preferred_skills": [<list of ALL matched preferred skills>],
-        "additional_relevant_skills": [<candidate skills relevant to the role but not explicitly mentioned>]
-    }},
-    "experience_analysis": {{
-        "meets_experience_requirement": <true/false>,
-        "relevant_experience_years": <estimated years as number>,
-        "relevant_experiences": [<list of ALL specific relevant work experiences>],
-        "experience_quality_score": <0-100 based on relevance and impact>
-    }},
-    "education_analysis": {{
-        "meets_education_requirement": <true/false>,
-        "education_relevance_score": <0-100>,
-        "relevant_education": [<list of ALL relevant degrees/certifications/training with details>],
-        "education_details": [<extract ALL educational details like degree type, institution, year, field of study>],
-        "education_level_match": <detailed assessment of how education level matches requirement>,
-        "alternative_qualifications": [<any alternative qualifications that could substitute formal education>]
-    }},
-    "project_analysis": {{
-        "relevant_projects": [<list of ALL projects relevant to this role>],
-        "project_relevance_score": <0-100>
-    }},
-    "strengths": [<top 5-7 candidate strengths for this specific role>],
-    "weaknesses": [<top 3-5 areas where candidate needs development>],
-    "recommendations": [<5-7 actionable recommendations for candidate and/or employer>]
-}}
-
-ANALYSIS GUIDELINES:
-- Evaluate EVERY skill mentioned in job requirements
-- Consider EVERY responsibility and its match with candidate experience
-- Look for ALL educational qualifications and alternative learning paths
-- Be thorough in finding transferable skills and related experience
-- Don't skip evaluation due to list length - be comprehensive
-- Provide detailed analysis even if there are many requirements
-
-Return ONLY valid JSON without any markdown formatting or additional text."""
+    Focus on essential matches and key insights only. Return ONLY valid JSON."""
 
             response = self.client.models.generate_content(
                 model=AnalysisConstants.DEFAULT_MODEL,
@@ -604,42 +569,28 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
         return base_analysis
     
     def _validate_report_completeness(self, report_text: str, language: str) -> bool:
-        """
-        Validate if the generated report is complete based on language.
-        
-        Args:
-            report_text: Generated report text
-            language: Report language
-            
-        Returns:
-            True if report appears complete
-        """
+        """Validate if the generated report is complete based on language."""
         if not report_text or len(report_text.strip()) < AnalysisConstants.MIN_REPORT_LENGTH:
             return False
         
         # Check for required sections based on language
         if language == "tr":
-            required_sections = [
-                "özet", "yönetici özeti", "teknik beceriler", "beceriler", 
-                "deneyim", "eğitim", "öneri", "tavsiye", "güçlü", "proje"
-            ]
+            required_sections = ["genel değerlendirme", "teknik beceriler", "deneyim", "öneri"]
         else:
-            required_sections = [
-                "executive summary", "technical skills", "experience", 
-                "education", "recommendation", "strengths", "project"
-            ]
+            required_sections = ["executive summary", "technical skills", "experience", "recommendation"]
         
-        # Check if at least 4 out of core sections are present
+        # Check if at least 3 out of 4 core sections are present
         sections_found = sum(1 for section in required_sections 
                             if section.lower() in report_text.lower())
         
-        return sections_found >= 4
+        return sections_found >= 3
 
     def _generate_report_with_retry(
         self, 
         job_requirements: JobRequirements,
         compatibility_analysis: Dict[str, Any],
         language: str,
+        company_name: str,
         max_retries: int = AnalysisConstants.MAX_RETRIES
     ) -> str:
         """
@@ -667,7 +618,8 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
                 report_prompt = self._generate_report_prompt(
                     job_requirements,
                     compatibility_analysis,
-                    language
+                    language,
+                    company_name
                 )
                 
                 # Add completion instruction for retries
@@ -713,25 +665,16 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
         
         # If all retries fail, always return a fallback report
         st.info(lang_msgs["generating_fallback"])
-        return self._generate_fallback_report(job_requirements, compatibility_analysis, language)
+        return self._generate_fallback_report(job_requirements, compatibility_analysis, language, company_name)
 
     def _generate_report_prompt(
         self, 
         job_requirements: JobRequirements,
         compatibility_analysis: Dict[str, Any],
-        language: str
+        language: str,
+        company_name: str
     ) -> str:
-        """
-        Generate the prompt for final report generation with explicit language control.
-        
-        Args:
-            job_requirements: Job requirements
-            compatibility_analysis: Analysis results
-            language: Report language
-            
-        Returns:
-            Formatted prompt string
-        """
+        """Generate the prompt for final report generation with explicit language control."""
         candidate_name = self.cv_data.get('name', 'Unknown Candidate')
         position_title = job_requirements.position_title or 'Unknown Position'
         
@@ -739,317 +682,174 @@ Return ONLY valid JSON without any markdown formatting or additional text."""
         if language == "tr":
             return f"""Bu analiz sonuçlarına göre kapsamlı, profesyonel bir iş uyumluluk raporu oluştur:
 
-POZİSYON: {position_title}
-ADAY: {candidate_name}
+    ŞİRKET: {company_name}
+    POZİSYON: {position_title}
+    ADAY: {candidate_name}
 
-UYUMLULUK ANALİZİ:
-{json.dumps(compatibility_analysis, indent=2)}
+    UYUMLULUK ANALİZİ:
+    {json.dumps(compatibility_analysis, indent=2)}
 
-ÖNEMLİ: Analiz raporunuza herhangi bir tarih eklemeyin. Doküman otomatik olarak başlığa doğru oluşturulma tarihini ekleyecektir. Sadece uyumluluk analizi içeriğine odaklanın, zaman damgası veya tarih eklemeyin.
+    TÜRKÇE olarak aşağıdaki EXACT formatı kullanarak rapor oluştur:
 
-TÜRKÇE olarak aşağıdaki bölümleri içeren detaylı bir rapor oluştur:
+    ## 1. Genel Değerlendirme
+    [2-3 cümle özet + skor]
 
-1. **Yönetici Özeti** 
-- Genel uyumluluk skoru ve görsel gösterge (⭐ derecelendirmeleri)
-- Bir paragraf özet öneri
-- Ana noktalar (3-4 madde)
+    ## 2. Teknik Beceriler
+    [eşleşen/eksik beceriler, kısa değerlendirme]
 
-2. **Teknik Beceriler Değerlendirmesi**
-- Gerekli becerilerin karşılanma yüzdesi
-- Eşleşen beceriler ve yeterlilik göstergeleri
-- Eksik beceriler ve öğrenme önerileri
-- Değer katacak ek ilgili beceriler
+    ## 3. Deneyim Uyumu
+    [deneyim yeterliliği, ilgili roller]
 
-3. **Profesyonel Deneyim Değerlendirmesi**
-- İlgili deneyim yılları vs gereksinim
-- En uygun roller ve başarılar
-- Sektör/alan deneyimi uyumu
-- Liderlik ve proje karmaşıklığı göstergeleri
+    ## 4. Eğitim Durumu
+    [eğitim uygunluğu, kısa değerlendirme]
 
-4. **Eğitim ve Sertifikasyonlar**
-- Formal eğitim uyumu ve detayları
-- İlgili sertifikalar ve eğitimler
-- Alternatif nitelikler ve sürekli öğrenme
-- Eğitim düzeyi analizi
+    ## 5. Güçlü Yönler
+    [3-4 ana güçlü yön]
 
-5. **Proje Portföyü Analizi**
-- En uygun projeler ve etkileri
-- Gösterilen teknik karmaşıklık
-- Gösterilen problem çözme yetenekleri
+    ## 6. Gelişim Alanları
+    [2-3 gelişim önerisi]
 
-6. **Bu Rol İçin Ana Güçlü Yönler**
-- Spesifik örneklerle en iyi 5-7 güçlü yön
-- Benzersiz değer önerileri
-- Kültürel/yumuşak beceri uyumları
+    ## 7. Öneri
+    [net işe alım önerisi + kısa gerekçe]
 
-7. **Gelişim Fırsatları**
-- Öncelik düzeyleri ile beceri eksiklikleri
-- Önerilen öğrenme yolları
-- Beceri kazanımı için zaman çizelgesi
+    KURALLARI:
+    - Başlıkları AYNEN "## 1. Genel Değerlendirme" formatında yaz
+    - Madde işaretleri kullan
+    - Emoji ekle (✅ ❌ ⭐ 📊)
+    - 400-600 kelime
+    - TÜRKÇE yaz
 
-8. **Son Öneri**
-- Net işe alım önerisi (Güçlü Şekilde Önerilir/Önerilir/Koşullu/Önerilmez)
-- Risk değerlendirmesi
-- İşe alınırsa uyum önerileri
-- Uygunsa alternatif rol önerileri
-
-Biçimlendirme Kuralları:
-- Net başlıklar ve alt başlıklar kullan
-- İlgili yerlerde yüzde skorları ve ölçütler ekle
-- Netlik için madde işaretleri kullan
-- Görsel çekicilik için emoji göstergeleri ekle (✅ ❌ ⚠️ 🌟 📊)
-- Profesyonel ama ilgi çekici ton kullan
-- Kalın metin kullanarak taranabilir yap
-- Toplam uzunluk: 800-1200 kelime
-
-KRITIK: TÜM gereksinimleri ve becerileri değerlendirin. Sayı sınırı koymayın. 8 bölümü de kapsayan EKSİKSİZ raporu TÜRKÇE olarak yazın."""
+    SADECE rapor içeriğini yaz, başka hiçbir şey ekleme!"""
         
         else:  # English
             return f"""Generate a comprehensive, professional job compatibility report based on this analysis:
 
-JOB POSITION: {position_title}
-CANDIDATE: {candidate_name}
+    COMPANY: {company_name}
+    JOB POSITION: {position_title}
+    CANDIDATE: {candidate_name}
 
-COMPATIBILITY ANALYSIS:
-{json.dumps(compatibility_analysis, indent=2)}
+    COMPATIBILITY ANALYSIS:
+    {json.dumps(compatibility_analysis, indent=2)}
 
-IMPORTANT: Do not include any dates in your analysis report. The document will automatically include the correct generation date in the header. Focus only on the compatibility analysis content without adding timestamps or dates.
+    Generate a detailed report in ENGLISH using this EXACT format:
 
-Generate a detailed report in ENGLISH with these sections:
+    ## 1. Executive Summary
+    [2-3 sentence overview + score]
 
-1. **Executive Summary** 
-- Overall compatibility score with visual indicator (e.g., ⭐ ratings)
-- One-paragraph recommendation summary
-- Key highlights (3-4 bullet points)
+    ## 2. Technical Skills
+    [matched/missing skills, brief assessment]
 
-2. **Technical Skills Assessment**
-- Required skills coverage with percentage
-- Matched skills with proficiency indicators
-- Missing skills with learning recommendations
-- Additional relevant skills that add value
+    ## 3. Experience Match
+    [experience adequacy, relevant roles]
 
-3. **Professional Experience Evaluation**
-- Years of relevant experience vs. requirement
-- Most relevant roles and achievements
-- Industry/domain experience alignment
-- Leadership and project complexity indicators
+    ## 4. Education Fit
+    [education suitability, brief evaluation]
 
-4. **Education & Certifications**
-- Formal education alignment with full details
-- Relevant certifications and training
-- Alternative qualifications and continuous learning
-- Education level analysis
+    ## 5. Key Strengths
+    [3-4 main strengths]
 
-5. **Project Portfolio Analysis**
-- Most relevant projects with impact
-- Technical complexity demonstrated
-- Problem-solving capabilities shown
+    ## 6. Development Areas
+    [2-3 improvement suggestions]
 
-6. **Key Strengths for This Role**
-- Top 5-7 strengths with specific examples
-- Unique value propositions
-- Cultural/soft skill alignments
+    ## 7. Recommendation
+    [clear hiring recommendation + brief rationale]
 
-7. **Development Opportunities**
-- Skills gaps with priority levels
-- Suggested learning paths
-- Timeline for skill acquisition
+    RULES:
+    - Write headings EXACTLY as "## 1. Executive Summary" format
+    - Use bullet points
+    - Add emoji indicators (✅ ❌ ⭐ 📊)
+    - 400-600 words
+    - Write in ENGLISH
 
-8. **Final Recommendation**
-- Clear hiring recommendation (Highly Recommended/Recommended/Conditional/Not Recommended)
-- Risk assessment
-- Onboarding suggestions if hired
-- Alternative role suggestions if applicable
+    Write ONLY the report content, nothing else!"""
 
-Formatting Guidelines:
-- Use clear headings and subheadings
-- Include percentage scores and metrics where relevant
-- Use bullet points for clarity
-- Add emoji indicators for visual appeal (✅ ❌ ⚠️ 🌟 📊)
-- Keep professional but engaging tone
-- Make it scannable with good use of bold text
-- Total length: 800-1200 words
-
-CRITICAL: Evaluate ALL requirements and skills. Don't impose number limits. Write the COMPLETE report covering all 8 sections in ENGLISH."""
-
-    def _generate_fallback_report(
-        self, 
-        job_requirements: JobRequirements,
-        compatibility_analysis: Dict[str, Any],
-        language: str
-    ) -> str:
-        """
-        Generate a basic fallback report when AI generation fails - always succeeds.
-        """
+    def _generate_fallback_report(self, job_requirements: JobRequirements, compatibility_analysis: Dict[str, Any], language: str, company_name: str) -> str:
+        """Generate a concise fallback report."""
         try:
             candidate_name = self.cv_data.get('name', 'Unknown Candidate')
             position_title = job_requirements.position_title or 'Unknown Position'
             overall_score = compatibility_analysis.get('overall_compatibility_score', 50)
             
-            # Get analysis data with safe defaults
-            skill_analysis = compatibility_analysis.get('skill_analysis', {})
-            experience_analysis = compatibility_analysis.get('experience_analysis', {})
-            education_analysis = compatibility_analysis.get('education_analysis', {})
-            
             if language == "tr":
-                return f"""# 📋 {candidate_name} - {position_title} Uyum Raporu
+                return f"""## 1. Genel Değerlendirme
+    **Uyum Skoru:** {overall_score}% {'🌟🌟🌟🌟' if overall_score >= 70 else '🌟🌟🌟' if overall_score >= 50 else '🌟🌟'}
 
-## ⭐ Genel Değerlendirme
-**Genel Uyum Skoru:** {overall_score}% {'🌟🌟🌟🌟🌟' if overall_score >= 80 else '🌟🌟🌟🌟' if overall_score >= 60 else '🌟🌟🌟' if overall_score >= 40 else '🌟🌟'}
+    Bu aday {company_name} şirketindeki {position_title} pozisyonu için **{overall_score}%** uyum göstermektedir.
 
-Bu adayın söz konusu pozisyon için genel uyum düzeyi **{overall_score}%** olarak değerlendirilmiştir. Bu rapor, kapsamlı analiz sonucunda oluşturulmuştur.
+    ## 2. Teknik Beceriler
+    • **Eşleşen Beceriler:** Temel gereksinimler karşılanıyor ✅
+    • **Gelişim Alanları:** Bazı teknik beceriler geliştirilebilir ⚠️
+    • **Ek Değer:** İlgili deneyim ve beceriler mevcut ⭐
 
-### 🎯 Öne Çıkan Noktalar:
-• **Teknik Beceri Uyumu:** {skill_analysis.get('required_skills_match', overall_score)}%
-• **Deneyim Kalitesi:** {experience_analysis.get('experience_quality_score', overall_score)}%
-• **Eğitim Uygunluğu:** {'✅ Uygun' if education_analysis.get('meets_education_requirement', False) else '⚠️ Değerlendirme Gerekli'}
+    ## 3. Deneyim Uyumu
+    • **Deneyim Düzeyi:** {'✅ Yeterli' if overall_score >= 60 else '⚠️ Değerlendirme Gerekli'}
+    • **İlgili Roller:** Pozisyonla uyumlu deneyimler var
+    • **Kalite:** Orta-iyi seviye profesyonel geçmiş
 
-## 🔧 Kapsamlı Beceri Analizi
-**Gerekli Becerilerin Karşılanma Oranı:** {skill_analysis.get('required_skills_match', overall_score)}%
+    ## 4. Eğitim Durumu
+    • **Eğitim Uygunluğu:** {'✅ Uygun' if overall_score >= 50 else '⚠️ İnceleme Gerekli'}
+    • **Alternatif Nitelikler:** Pratik deneyim ve öğrenme kapasitesi
 
-### ✅ Eşleşen Gerekli Beceriler:
-{chr(10).join([f"• **{skill}** - Doğrulanmış yetkinlik" for skill in skill_analysis.get('matched_required_skills', [])[:10]]) or '• Teknik beceri değerlendirmesi devam ediyor'}
+    ## 5. Güçlü Yönler
+    • Teknik temel ve öğrenme kapasitesi ⭐
+    • İlgili sektör deneyimi 💼
+    • Problem çözme becerileri 🔧
 
-### ❌ Gelişim Gereken Beceriler:
-{chr(10).join([f"• **{skill}** - Öğrenme fırsatı" for skill in skill_analysis.get('missing_required_skills', [])[:8]]) or '• Büyük beceri eksikliği tespit edilmedi'}
+    ## 6. Gelişim Alanları
+    • Spesifik teknik becerilerin güçlendirilmesi 📈
+    • Sürekli öğrenme ve gelişim planı 📚
 
-### 🌟 Ek Değerli Beceriler:
-{chr(10).join([f"• **{skill}** - Pozisyona ek değer" for skill in skill_analysis.get('additional_relevant_skills', [])[:6]]) or '• Ek beceri değerlendirmesi yapılmakta'}
-
-## 💼 Profesyonel Deneyim Kapsamlı Değerlendirmesi
-**Deneyim Gereksinimini Karşılama:** {'✅ Evet' if experience_analysis.get('meets_experience_requirement', False) else '⚠️ Detay Analiz Gerekli'}
-
-### 🏆 İlgili Deneyimler:
-{chr(10).join([f"• {exp}" for exp in experience_analysis.get('relevant_experiences', ['Profesyonel deneyim detayları değerlendiriliyor'])[:5]])}
-
-## 🎓 Eğitim ve Alternatif Nitelikler
-**Eğitim Gereksinimini Karşılama:** {'✅ Evet' if education_analysis.get('meets_education_requirement', False) else '⚠️ Detaylı İnceleme Gerekli'}
-
-### 📚 Eğitim Geçmişi:
-{chr(10).join([f"• {edu}" for edu in education_analysis.get('relevant_education', ['Eğitim geçmişi detaylı olarak değerlendiriliyor'])[:4]])}
-
-### 🔄 Alternatif Nitelikler:
-{chr(10).join([f"• {qual}" for qual in education_analysis.get('alternative_qualifications', ['Pratik deneyim ve sürekli öğrenme değerlendiriliyor'])[:3]])}
-
-## 🚀 Proje ve Başarı Analizi
-### 💡 İlgili Projeler:
-{chr(10).join([f"• {proj}" for proj in compatibility_analysis.get('project_analysis', {}).get('relevant_projects', ['Proje portföyü kapsamlı olarak değerlendiriliyor'])[:4]])}
-
-## ⭐ Bu Pozisyon İçin Güçlü Yönler
-{chr(10).join([f"🌟 **{strength}**" for strength in compatibility_analysis.get('strengths', ['Kapsamlı güçlü yön analizi yapılmakta', 'Teknik ve kişisel becerilerin değerlendirilmesi devam ediyor'])[:6]])}
-
-## 📈 Gelişim ve Öğrenme Fırsatları
-{chr(10).join([f"⚠️ **{weakness}**" for weakness in compatibility_analysis.get('weaknesses', ['Gelişim alanları belirlenmekte', 'Sürekli öğrenme planı önerileri hazırlanıyor'])[:4]])}
-
-## 💡 Kapsamlı Öneriler
-{chr(10).join([f"💡 {rec}" for rec in compatibility_analysis.get('recommendations', ['Detaylı mülakat önerilir', 'Teknik değerlendirme yapılması önerilir', 'Referans kontrolleri önerilir'])[:5]])}
-
-## 🎯 Final Değerlendirme ve Öneri
-{
-    '🌟 **Güçlü Şekilde Önerilir** - Yüksek uyum ve potansiyel gösteren aday' if overall_score >= 75
-    else '✅ **Önerilir** - Pozitif uyum gösteren, detay değerlendirme önerilen aday' if overall_score >= 55
-    else '⚠️ **Koşullu Değerlendirme** - Ek inceleme ve gelişim planı ile değerlendirilebilir' if overall_score >= 35
-    else '📋 **Detaylı Analiz Gerekli** - Kapsamlı değerlendirme önerilir'
-}
-
-**Risk ve Fırsat Değerlendirmesi:**
-• Teknik uyum ve öğrenme kapasitesi değerlendirilmeli
-• Takım uyumu ve kültürel fit analiz edilmeli  
-• Gelişim planı ve mentörlük desteği değerlendirilmeli
-
----
-*Bu temel değerlendirme raporu, kapsamlı analiz temelinde hazırlanmıştır. Nihai karar için detaylı görüşme ve değerlendirme önerilir.*"""
+    ## 7. Öneri
+    {
+        '✅ **Önerilir** - Detaylı görüşme ile değerlendirilebilir' if overall_score >= 60
+        else '⚠️ **Koşullu** - Ek değerlendirme ve gelişim planı ile' if overall_score >= 40
+        else '📋 **Detaylı Analiz** - Kapsamlı inceleme önerilir'
+    }"""
             
             else:
-                return f"""# 📋 {candidate_name} - {position_title} Compatibility Report
+                return f"""## 1. Executive Summary
+    **Compatibility Score:** {overall_score}% {'🌟🌟🌟🌟' if overall_score >= 70 else '🌟🌟🌟' if overall_score >= 50 else '🌟🌟'}
 
-## ⭐ Executive Summary
-**Overall Compatibility Score:** {overall_score}% {'🌟🌟🌟🌟🌟' if overall_score >= 80 else '🌟🌟🌟🌟' if overall_score >= 60 else '🌟🌟🌟' if overall_score >= 40 else '🌟🌟'}
+    This candidate shows **{overall_score}%** compatibility for the {position_title} position at {company_name}.
 
-This candidate shows a **{overall_score}%** overall compatibility for the specified position. This report is based on comprehensive analysis of all requirements.
+    ## 2. Technical Skills
+    • **Matched Skills:** Core requirements are met ✅
+    • **Development Areas:** Some technical skills can be improved ⚠️
+    • **Added Value:** Relevant experience and capabilities present ⭐
 
-### 🎯 Key Highlights:
-• **Technical Skills Match:** {skill_analysis.get('required_skills_match', overall_score)}%
-• **Experience Quality:** {experience_analysis.get('experience_quality_score', overall_score)}%
-• **Education Fit:** {'✅ Suitable' if education_analysis.get('meets_education_requirement', False) else '⚠️ Requires Assessment'}
+    ## 3. Experience Match
+    • **Experience Level:** {'✅ Adequate' if overall_score >= 60 else '⚠️ Requires Assessment'}
+    • **Relevant Roles:** Compatible experience available
+    • **Quality:** Medium to good professional background
 
-## 🔧 Comprehensive Skills Assessment
-**Required Skills Coverage:** {skill_analysis.get('required_skills_match', overall_score)}%
+    ## 4. Education Fit
+    • **Education Suitability:** {'✅ Suitable' if overall_score >= 50 else '⚠️ Requires Review'}
+    • **Alternative Qualifications:** Practical experience and learning capacity
 
-### ✅ Matched Required Skills:
-{chr(10).join([f"• **{skill}** - Verified competency" for skill in skill_analysis.get('matched_required_skills', [])[:10]]) or '• Technical skills assessment in progress'}
+    ## 5. Key Strengths
+    • Technical foundation and learning capacity ⭐
+    • Relevant industry experience 💼
+    • Problem-solving capabilities 🔧
 
-### ❌ Skills for Development:
-{chr(10).join([f"• **{skill}** - Learning opportunity" for skill in skill_analysis.get('missing_required_skills', [])[:8]]) or '• No major skill gaps identified'}
+    ## 6. Development Areas
+    • Strengthen specific technical skills 📈
+    • Continuous learning and development plan 📚
 
-### 🌟 Additional Valuable Skills:
-{chr(10).join([f"• **{skill}** - Adds value to role" for skill in skill_analysis.get('additional_relevant_skills', [])[:6]]) or '• Additional skills being evaluated'}
-
-## 💼 Comprehensive Experience Evaluation
-**Meets Experience Requirement:** {'✅ Yes' if experience_analysis.get('meets_experience_requirement', False) else '⚠️ Detailed Analysis Required'}
-
-### 🏆 Relevant Experiences:
-{chr(10).join([f"• {exp}" for exp in experience_analysis.get('relevant_experiences', ['Professional experience details under evaluation'])[:5]])}
-
-## 🎓 Education & Alternative Qualifications
-**Meets Education Requirement:** {'✅ Yes' if education_analysis.get('meets_education_requirement', False) else '⚠️ Detailed Review Required'}
-
-### 📚 Educational Background:
-{chr(10).join([f"• {edu}" for edu in education_analysis.get('relevant_education', ['Educational background under detailed evaluation'])[:4]])}
-
-### 🔄 Alternative Qualifications:
-{chr(10).join([f"• {qual}" for qual in education_analysis.get('alternative_qualifications', ['Practical experience and continuous learning being evaluated'])[:3]])}
-
-## 🚀 Project and Achievement Analysis
-### 💡 Relevant Projects:
-{chr(10).join([f"• {proj}" for proj in compatibility_analysis.get('project_analysis', {}).get('relevant_projects', ['Project portfolio under comprehensive evaluation'])[:4]])}
-
-## ⭐ Key Strengths for This Role
-{chr(10).join([f"🌟 **{strength}**" for strength in compatibility_analysis.get('strengths', ['Comprehensive strength analysis in progress', 'Technical and personal skills evaluation continuing'])[:6]])}
-
-## 📈 Development and Learning Opportunities
-{chr(10).join([f"⚠️ **{weakness}**" for weakness in compatibility_analysis.get('weaknesses', ['Development areas being identified', 'Continuous learning plan recommendations being prepared'])[:4]])}
-
-## 💡 Comprehensive Recommendations
-{chr(10).join([f"💡 {rec}" for rec in compatibility_analysis.get('recommendations', ['Detailed interview recommended', 'Technical assessment suggested', 'Reference checks advised'])[:5]])}
-
-## 🎯 Final Assessment and Recommendation
-{
-    '🌟 **Highly Recommended** - Strong compatibility and potential demonstrated' if overall_score >= 75
-    else '✅ **Recommended** - Positive compatibility shown, detailed evaluation suggested' if overall_score >= 55
-    else '⚠️ **Conditional Assessment** - Additional review and development plan recommended' if overall_score >= 35
-    else '📋 **Detailed Analysis Required** - Comprehensive evaluation recommended'
-}
-
-**Risk and Opportunity Assessment:**
-• Technical fit and learning capacity should be evaluated
-• Team compatibility and cultural fit should be analyzed
-• Development plan and mentorship support should be considered
-
----
-*This foundational assessment report has been prepared based on comprehensive analysis. Detailed interview and evaluation recommended for final decision.*"""
+    ## 7. Recommendation
+    {
+        '✅ **Recommended** - Can be evaluated with detailed interview' if overall_score >= 60
+        else '⚠️ **Conditional** - With additional assessment and development plan' if overall_score >= 40
+        else '📋 **Detailed Analysis** - Comprehensive review recommended'
+    }"""
         
         except Exception as e:
-            # Ultimate fallback - should never fail
-            return f"""# Analysis Report
-
-## Summary
-A compatibility analysis has been conducted for this position. Due to technical limitations, a simplified report has been generated.
-
-**Recommendation:** Conduct detailed interview and assessment to evaluate candidate suitability.
-
-**Next Steps:**
-- Technical interview recommended
-- Skills assessment suggested  
-- Reference verification advised
-
----
-*Technical note: {e}*"""
+            return f"## 1. Analysis Report\n\nCompatibility analysis completed. Detailed interview recommended.\n\n*Technical note: {e}*"
 
     def generate_compatibility_report(
         self, 
         job_description: str, 
-        language: str = "en"
+        language: str = "en",
+        company_name: str = "Unknown Company"
     ) -> Dict[str, Any]:
         """
         Generate comprehensive compatibility report - guaranteed to never fail.
@@ -1104,9 +904,13 @@ A compatibility analysis has been conducted for this position. Due to technical 
                             required_skills=["analysis", "evaluation"],
                             education_requirements="As specified in job description"
                         )
+                    # Ensure company name is set
+                    if not job_requirements.company_info:
+                        job_requirements.company_info = company_name
+
                 except Exception as e:
                     st.warning(f"Job requirements extraction had issues: {e}")
-                    job_requirements = JobRequirements(position_title="Position Analysis")
+                    job_requirements = JobRequirements(position_title="Position Analysis", company_info=company_name)
             
             # Step 2: Get relevant CV context - with fallback
             with st.spinner(progress["matching_cv"]):
@@ -1136,13 +940,15 @@ A compatibility analysis has been conducted for this position. Due to technical 
                 report_text = self._generate_report_with_retry(
                     job_requirements,
                     compatibility_analysis,
-                    language
+                    language,
+                    company_name # Pass company name here
                 )
             
             # Always return successful response
             return {
                 "report_text": report_text,
                 "job_title": job_requirements.position_title,
+                "company_name": company_name,
                 "compatibility_score": compatibility_analysis.get('overall_compatibility_score', 50),
                 "metadata": {
                     "candidate_name": self.cv_data.get('name', 'Unknown'),
@@ -1160,14 +966,16 @@ A compatibility analysis has been conducted for this position. Due to technical 
             st.warning(f"Using emergency fallback: {e}")
             
             basic_report = self._generate_fallback_report(
-                JobRequirements(position_title="Position Analysis"),
+                JobRequirements(position_title="Position Analysis", company_info=company_name),
                 {"overall_compatibility_score": 50},
-                language
+                language,
+                company_name
             )
             
             return {
                 "report_text": basic_report,
                 "job_title": "Position Analysis",
+                "company_name": company_name,
                 "compatibility_score": 50,
                 "metadata": {
                     "candidate_name": self.cv_data.get('name', 'Unknown'),

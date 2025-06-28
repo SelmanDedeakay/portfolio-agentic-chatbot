@@ -1,28 +1,31 @@
+# Core imports
 import streamlit as st
 import os
-import numpy as np
-import pickle
-import hashlib
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass
-from enum import Enum
 import json
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 import time
 import datetime 
 import uuid
 import base64
+import hashlib
+import pickle
+from typing import List, Dict, Any, Optional, Tuple
+from dataclasses import dataclass
+from enum import Enum
+
+# Third-party imports
+import numpy as np
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 from supabase import create_client, Client
-# Import tools and components
+
+# Local imports
 from tools.email_tool import EmailTool
 from tools.social_media_tool import SocialMediaAggregator
 from tools.tool_definitions import ToolDefinitions
 from ui.email_components import get_ui_text, render_email_verification_card, render_email_editor_card
 
 load_dotenv()
-
 class BugReportManager:
     """Handle bug report submissions to Supabase"""
     
@@ -391,7 +394,7 @@ class EmbeddingCache:
             with open(self.cache_info_path, 'w', encoding='utf-8') as f:
                 json.dump(cache_info, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.warning(system_text["cache_info_save_failed"].format(error=e))
     
     def is_cache_valid(self, cv_file_path: str) -> bool:
@@ -445,7 +448,7 @@ class EmbeddingCache:
             return chunks, embeddings
             
         except Exception as e:
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.warning(system_text["cache_load_failed"].format(error=e))
             return None, None
     
@@ -467,7 +470,7 @@ class EmbeddingCache:
             return True
             
         except Exception as e:
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.error(system_text["cache_save_error"].format(error=e))
             return False
     
@@ -478,7 +481,7 @@ class EmbeddingCache:
                 if os.path.exists(file_path):
                     os.remove(file_path)
             except Exception as e:
-                system_text = get_system_text(language.value)
+                system_text = get_cached_system_text(language.value)
                 st.warning(system_text["cache_file_remove_failed"].format(file_path=file_path, error=e))
     
     def get_cache_stats(self) -> Dict[str, Any]:
@@ -500,85 +503,85 @@ class EmbeddingCache:
 class LanguageDetector:
     """Enhanced language detection with caching and optimization"""
     
-    # Language-specific indicators
-    TURKISH_CHARS = set('çğıöşü')
-    
-    TURKISH_KEYWORDS = {
+    # Pre-compiled sets for faster lookup
+    TURKISH_CHARS = frozenset('çğıöşü')
+    TURKISH_KEYWORDS = frozenset({
         'hakkında', 'nedir', 'kimdir', 'nasıl', 'merhaba', 'teşekkür', 'iletişim', 'mesaj', 'gönder',
         'anlat', 'söyle', 'nerede', 'ne zaman', 'hangi', 'proje', 'projeler', 'deneyim', 'eğitim',
         'çalışma', 'iş', 'üniversite', 'okul', 'mezun', 'değil', 'yok', 'var', 'olan', 'yapan',
         'merhabalar', 'selam', 'günaydın', 'teşekkürler', 'sağol', 'kariyer', 'bilgi', 'selamlar',
         'anladım', 'bilmiyorum', 'istiyorum', 'isterim', 've', 'bir', 'bu', 'şu', 'o', 'ben', 'sen',
-        'ile', 'için', 'ama', 'fakat', 'lakin', 'çünkü', 'ki', 'da', 'de', 'ta', 'te',"neler","yap"
-    }
+        'ile', 'için', 'ama', 'fakat', 'lakin', 'çünkü', 'ki', 'da', 'de', 'ta', 'te', 'neler', 'yap'
+    })
     
-    ENGLISH_KEYWORDS = {
+    ENGLISH_KEYWORDS = frozenset({
         'hello', 'hi', 'what', 'who', 'when', 'where', 'why', 'how', 'about', 'thank', 'thanks',
         'tell', 'show', 'project', 'experience', 'work', 'education', 'university', 'job', 'i', 'you',
         'know', 'dont', "don't", 'want', 'need', 'can', 'could', 'would', 'should', 'the', 'and',
         'with', 'for', 'but', 'because', 'that', 'this', 'they', 'we', 'he', 'she', 'it', 'my', 'your'
-    }
+    })
     
-    # Phrase patterns
-    TURKISH_PHRASES = {'bilmiyorum', 'istiyorum', 'yapabilir', 'söyleyebilir', 'eder misin', 'var mı'}
-    ENGLISH_PHRASES = {"i dont", "i don't", "i want", "i need", "i can", "i would", "could you", "can you"}
+    TURKISH_GREETINGS = frozenset({'selam', 'merhaba', 'merhabalar', 'selamlar', 'günaydın', 'iyi günler', 'meraba'})
+    ENGLISH_GREETINGS = frozenset({'hello', 'hi', 'hey', 'greetings', 'good morning', 'good day'})
     
-    # Quick lookup greetings
-    TURKISH_GREETINGS = {'selam', 'merhaba', 'merhabalar', 'selamlar', 'günaydın', 'iyi günler',"meraba"}
-    ENGLISH_GREETINGS = {'hello', 'hi', 'hey', 'greetings', 'good morning', 'good day'}
+    # Cache for recent detections
+    _cache = {}
+    _cache_size_limit = 100
     
     @classmethod
     def detect_from_text(cls, text: str) -> Language:
-        """Detect language from a single text"""
+        """Detect language from a single text with caching"""
         if not text:
             return Language.ENGLISH
         
+        # Check cache first
+        text_hash = hash(text.lower().strip()[:50])  # Hash first 50 chars for cache key
+        if text_hash in cls._cache:
+            return cls._cache[text_hash]
+        
+        # Clean cache if too large
+        if len(cls._cache) > cls._cache_size_limit:
+            cls._cache.clear()
+        
         text_lower = text.lower().strip()
+        result = Language.ENGLISH  # Default
         
         # Quick checks for very short messages
         if len(text_lower) <= 3:
             if text_lower in {'hi', 'hey'}:
-                return Language.ENGLISH
+                result = Language.ENGLISH
             elif text_lower in {'selam', 'mrb'}:
-                return Language.TURKISH
+                result = Language.TURKISH
+        else:
+            # Check greetings first (fastest)
+            if text_lower in cls.TURKISH_GREETINGS:
+                result = Language.TURKISH
+            elif text_lower in cls.ENGLISH_GREETINGS:
+                result = Language.ENGLISH
+            # Turkish character detection (very strong indicator)
+            elif any(char in text_lower for char in cls.TURKISH_CHARS):
+                result = Language.TURKISH
+            else:
+                # Keyword scoring - optimized
+                text_words = frozenset(text_lower.split())
+                turkish_score = len(text_words & cls.TURKISH_KEYWORDS) * 2
+                english_score = len(text_words & cls.ENGLISH_KEYWORDS)
+                
+                if turkish_score > english_score:
+                    result = Language.TURKISH
         
-        # Check greetings first (fastest)
-        if text_lower in cls.TURKISH_GREETINGS:
-            return Language.TURKISH
-        elif text_lower in cls.ENGLISH_GREETINGS:
-            return Language.ENGLISH
-        
-        # Turkish character detection (very strong indicator)
-        if any(char in text_lower for char in cls.TURKISH_CHARS):
-            return Language.TURKISH
-        
-        # Phrase detection
-        for phrase in cls.ENGLISH_PHRASES:
-            if phrase in text_lower:
-                return Language.ENGLISH
-        
-        for phrase in cls.TURKISH_PHRASES:
-            if phrase in text_lower:
-                return Language.TURKISH
-        
-        # Keyword scoring
-        text_words = set(text_lower.split())
-        turkish_score = len(text_words & cls.TURKISH_KEYWORDS) * 2
-        english_score = len(text_words & cls.ENGLISH_KEYWORDS)
-        
-        if turkish_score == 0 and english_score == 0:
-            return Language.ENGLISH
-        
-        return Language.TURKISH if turkish_score > english_score else Language.ENGLISH
+        # Cache result
+        cls._cache[text_hash] = result
+        return result
     
     @classmethod
     def detect_from_messages(cls, messages: List[Dict[str, str]]) -> Language:
-        """Detect language from conversation history"""
+        """Detect language from conversation history - optimized"""
         if not messages:
             return Language.ENGLISH
         
-        # Get last user message
-        for msg in reversed(messages):
+        # Get last user message only for efficiency
+        for msg in reversed(messages[-5:]):  # Check only last 5 messages
             if msg.get('role') == 'user':
                 return cls.detect_from_text(msg.get('content', ''))
         
@@ -731,7 +734,25 @@ Keywords: project, proje, {project.get('technology', '').lower()}, {project.get(
             if isinstance(skill_list, list):
                 skills_text += f"{category}: {', '.join(skill_list)}\n"
         return skills_text
+@st.cache_data
+def get_cached_system_text(language_code: str) -> Dict[str, str]:
+    """Cached version of system text to avoid repeated calls"""
+    return get_system_text(language_code)
 
+def get_current_language() -> Language:
+    """Get current language with efficient caching"""
+    if 'current_language' not in st.session_state:
+        detected = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
+        st.session_state.current_language = detected
+    return st.session_state.current_language
+
+def update_language_if_needed(new_language: Language) -> bool:
+    """Update language only if changed, return True if updated"""
+    current = st.session_state.get('current_language', Language.ENGLISH)
+    if current != new_language:
+        st.session_state.current_language = new_language
+        return True
+    return False
 
 class GeminiEmbeddingRAG:
     """Enhanced RAG with tool calling for email using JSON data and embedding caching"""
@@ -772,14 +793,15 @@ class GeminiEmbeddingRAG:
                 self.configured = False
                 # Get language for error message
                 language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-                system_text = get_system_text(language.value)
+                system_text = get_cached_system_text(language.value)
                 st.error(system_text["connection_error"])
         except Exception as e:
             language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.error(system_text["setup_failed"].format(error=e))
             self.configured = False
     
+
     def get_embeddings(self, texts: List[str]) -> np.ndarray:
         """Get embeddings using Gemini embedding model with batch processing"""
         if not self.configured or not texts:
@@ -894,7 +916,7 @@ class GeminiEmbeddingRAG:
         try:
             if not os.path.exists(self.json_path):
                 language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-                system_text = get_system_text(language.value)
+                system_text = get_cached_system_text(language.value)
                 st.error(system_text["cv_file_not_found"].format(file_path=self.json_path))
                 return
             
@@ -904,7 +926,7 @@ class GeminiEmbeddingRAG:
             
             if not self.cv_data:
                 language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-                system_text = get_system_text(language.value)
+                system_text = get_cached_system_text(language.value)
                 st.error(system_text["json_empty"])
                 return
             
@@ -919,11 +941,11 @@ class GeminiEmbeddingRAG:
                     self.cv_chunks = cached_chunks
                     self.cv_embeddings = cached_embeddings
                 else:
-                    system_text = get_system_text(language.value)
+                    system_text = get_cached_system_text(language.value)
                     st.warning(system_text["cache_corrupted"])
                     self._generate_fresh_embeddings(language)
             else:
-                system_text = get_system_text(language.value)
+                system_text = get_cached_system_text(language.value)
                 st.info(system_text["cache_not_found"])
                 self._generate_fresh_embeddings(language)
             
@@ -935,22 +957,22 @@ class GeminiEmbeddingRAG:
                     self
                 )
             else:
-                system_text = get_system_text(language.value)
+                system_text = get_cached_system_text(language.value)
                 st.error(system_text["embedding_generation_failed"])
                 
         except json.JSONDecodeError as e:
             language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.error(system_text["json_parse_error"].format(error=e))
         except Exception as e:
             language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.error(system_text["cv_load_error"].format(error=e))
     
     def _generate_fresh_embeddings(self, language: Language) -> None:
         """Generate fresh embeddings and cache them"""
         try:
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             
             # Convert to chunks
             self.cv_chunks = self.json_to_chunks(self.cv_data)
@@ -996,7 +1018,7 @@ class GeminiEmbeddingRAG:
                     self.cv_embeddings = np.array([])
                     
         except Exception as e:
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.error(system_text["embedding_generation_failed"])
             self.cv_embeddings = np.array([])
     
@@ -1004,7 +1026,7 @@ class GeminiEmbeddingRAG:
         """Clear embedding cache"""
         language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
         self.cache.clear_cache(language)
-        system_text = get_system_text(language.value)
+        system_text = get_cached_system_text(language.value)
         st.success(system_text["cache_cleared"])
     
     def get_cache_stats(self) -> Dict[str, Any]:
@@ -1045,14 +1067,14 @@ class GeminiEmbeddingRAG:
         """Enhanced search with keyword matching and caching"""
         if not self.configured or self.cv_embeddings is None or self.cv_embeddings.size == 0:
             language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             return [{"text": system_text["embeddings_not_available"], "similarity": 0.0, "index": -1}]
         
         # Get query embedding
         query_embedding = self.get_embeddings([query])
         if query_embedding.size == 0:
             language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             return [{"text": system_text["query_process_failed"], "similarity": 0.0, "index": -1}]
         
         query_vec = query_embedding[0]
@@ -1091,10 +1113,11 @@ class GeminiEmbeddingRAG:
     - SADECE TÜRKÇE yanıtla
     - CV soruları için yalnızca sağlanan bağlamdan bilgi kullan
     - Profesyonel ve yardımsever ol
-    - Netlik ve okunabilirlik için markdown biçimlendirmesini kullan
+    - Netlik ve okunabilirlik için şık bir markdown biçimlendirmesini kullan
     - Kullanıcı referans isterse, bunları görüntüle ve talep üzerine iletişim bilgilerinin mevcut olduğuna dair bir not ekle
     - Projeler veya iş deneyimleri hakkında sorulduğunda, bağlamdan TÜM ilgili öğeleri listele
-    - Proje soruları için, proje adlarını, kullanılan teknolojileri ve açıklamaları ekle. Özel olarak istenmediği sürece bağlantı verme. "Agentic Portfolio Bot" hakkında konuşurken, sen olduğun için bununla ilgili bir şaka yap
+    - Proje soruları için, proje adlarını, kullanılan teknolojileri ve açıklamaları ekle. Özel olarak istenmediği sürece bağlantı verme.
+    -"Agentic Portfolio Bot" hakkında konuşurken, onun sen olduğun için bununla ilgili bir şaka yap
     - Deneyim soruları için şirket adlarını, pozisyonları, süreleri ve açıklamaları ekle
 
     EMAIL KURALLARI - ÇOK ÖNEMLİ:
@@ -1240,7 +1263,7 @@ class GeminiEmbeddingRAG:
         """Generate response with tool calling capability, Turkish support, and retry mechanism"""
         if not self.configured:
             language = LanguageDetector.detect_from_messages(conversation_history or [])
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             return system_text["api_not_configured"]
         
         # 1. PDF generation kontrolü ekleyin (YENİ KOD)
@@ -1272,7 +1295,7 @@ class GeminiEmbeddingRAG:
         prompt = self._build_prompt(query, context, language, recent_context)
         
         # System text for error messages
-        system_text = get_system_text(language.value)
+        system_text = get_cached_system_text(language.value)
         
         # Retry mechanism
         max_retries = 2
@@ -1503,7 +1526,7 @@ class ChatInterface:
         current_language = st.session_state.get('current_language', Language.ENGLISH)
         language_changed = (previous_language != current_language)
         
-        system_text = get_system_text(language.value)
+        system_text = get_cached_system_text(language.value)
         
         # Generate response
         with st.chat_message("assistant"):
@@ -1558,7 +1581,7 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
         language = st.session_state.current_language
     else:
         language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-    system_text = get_system_text(language.value)
+    system_text = get_cached_system_text(language.value)
     
     with st.sidebar:
         st.info(system_text["last_update"])
@@ -1619,46 +1642,39 @@ def render_sidebar(rag_system: GeminiEmbeddingRAG) -> None:
 
 
 def render_pdf_download() -> None:
-    # PDF henüz yoksa çık
-    if not {"pdf_data", "pdf_filename"} <= st.session_state.keys():
+    """Optimized PDF download rendering"""
+    # Early return if no PDF data
+    if not all(key in st.session_state for key in ["pdf_data", "pdf_filename"]):
         return
 
-    # Session state'deki mevcut dili kullan
-    if 'current_language' in st.session_state:
-        lang = st.session_state.current_language
-    else:
-        lang = LanguageDetector.detect_from_messages(
-            st.session_state.get("messages", [])
-        )
+    lang = get_current_language()
+    system_text = get_cached_system_text(lang.value)
     
-    # ---------------- 1) Veriler --------------------------
     pdf_bytes = st.session_state.pdf_data
     file_name = st.session_state.pdf_filename
-    b64_pdf   = base64.b64encode(pdf_bytes).decode()
 
-    # ---------------- 2) Dil başlıkları -------------------
-    system_text = get_system_text(lang.value)
-    
-    # ---------------- 3) Başlık + indirme -----------------
-    st.download_button(system_text["pdf_download"], pdf_bytes, file_name,
-                       mime="application/pdf", use_container_width=True)
+    # Download button
+    st.download_button(
+        system_text["pdf_download"], 
+        pdf_bytes, 
+        file_name,
+        mime="application/pdf", 
+        use_container_width=True
+    )
 
-    # ------------------------------------------------------
-    # 5)  E-posta ve Temizle butonları - Responsive
-    # ------------------------------------------------------
-    col1, col2 = st.columns([1, 1], gap="small")
+    # Action buttons
+    col1, col2 = st.columns(2, gap="small")
     with col1:
         if st.button(system_text["pdf_email"], use_container_width=True):
             st.session_state.show_email_form = True
     with col2:
         if st.button(system_text["pdf_clear"], use_container_width=True):
-            for k in ("pdf_data", "pdf_filename", "show_email_form"):
-                st.session_state.pop(k, None)
+            # Efficient cleanup
+            for key in ("pdf_data", "pdf_filename", "show_email_form"):
+                st.session_state.pop(key, None)
             st.rerun()
 
-    # ------------------------------------------------------
-    # 6)  E-posta formu
-    # ------------------------------------------------------
+    # Email form
     if st.session_state.get("show_email_form"):
         render_email_form_for_pdf(pdf_bytes, file_name, lang)
 
@@ -1666,7 +1682,7 @@ def render_pdf_download() -> None:
 def render_email_form_for_pdf(pdf_bytes: bytes, filename: str, language: Language):
     """Clean email form without JavaScript"""
     
-    system_text = get_system_text(language.value)
+    system_text = get_cached_system_text(language.value)
     
     # Email form
     st.markdown("---")
@@ -1852,20 +1868,26 @@ def render_header_popovers():
                         else:
                             st.warning("⚠️ Please enter a bug description.")
 
-def render_welcome_message():
-    """Render welcome message after popovers"""
-    # Mevcut mesajlardan dil algıla ve session state'i güncelle
-    current_messages = st.session_state.get("messages", [])
-    detected_language = LanguageDetector.detect_from_messages(current_messages)
-    st.session_state.current_language = detected_language
-    
-    st.markdown("""
+@st.cache_data
+def get_welcome_message() -> str:
+    """Cached welcome message"""
+    return """
     #### 👋 Merhaba! | Hello there!
     
     **Ben Selman'ın AI Portföy Asistanıyım. Nasıl yardımcı olabilirim?**
     
     **I'm Selman's AI Portfolio Assistant. How can I help you?**
-    """)
+    """
+
+def render_welcome_message():
+    """Render optimized welcome message"""
+    # Update language efficiently
+    current_messages = st.session_state.get("messages", [])
+    if current_messages:  # Only detect if there are messages
+        detected_language = LanguageDetector.detect_from_messages(current_messages)
+        update_language_if_needed(detected_language)
+    
+    st.markdown(get_welcome_message())
 def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, language: Language) -> bool:
     """Send PDF via email - simplified and reliable"""
     try:
@@ -1880,7 +1902,7 @@ def send_pdf_via_email(pdf_bytes: bytes, filename: str, recipient_email: str, la
         sender_password = st.secrets.get("GMAIL_APP_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD")
 
         if not sender_email or not sender_password:
-            system_text = get_system_text(language.value)
+            system_text = get_cached_system_text(language.value)
             st.error(system_text["email_config_missing"])
             return False
         
@@ -1966,6 +1988,21 @@ def initialize_session_state() -> None:
         st.session_state.messages = []
 
 
+def optimize_memory():
+    """Optimize memory usage for embedded environment"""
+    import gc
+    
+    # Clear any unused session state
+    keys_to_clean = [key for key in st.session_state.keys() 
+                     if key.startswith('temp_') or key.startswith('cache_')]
+    for key in keys_to_clean:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # Force garbage collection
+    gc.collect()
+
+# Add this call at the beginning of main() function:
 def main():
     """Main application entry point"""
     # Page configuration
@@ -1975,6 +2012,10 @@ def main():
         layout="wide",
         initial_sidebar_state="collapsed"
     )
+    
+    # Memory optimization for embedded environment
+    optimize_memory()
+
     
     # Initialize session state
     initialize_session_state()
@@ -1994,7 +2035,7 @@ def main():
     if "rag_system" not in st.session_state:
         # Detect language for initialization messages
         language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-        system_text = get_system_text(language.value)
+        system_text = get_cached_system_text(language.value)
         
         with st.spinner(system_text["initializing_chatbot"]):
             st.session_state.rag_system = GeminiEmbeddingRAG()
@@ -2004,14 +2045,14 @@ def main():
     # Check configuration
     if not rag_system.configured:
         language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-        system_text = get_system_text(language.value)
+        system_text = get_cached_system_text(language.value)
         st.error(system_text["configure_api_key"])
         st.stop()
     
     # Check email configuration
     if not rag_system.email_tool.email_user or not rag_system.email_tool.email_password:
         language = LanguageDetector.detect_from_messages(st.session_state.get("messages", []))
-        system_text = get_system_text(language.value)
+        system_text = get_cached_system_text(language.value)
         st.warning(system_text["email_not_configured"])
     
     # Initialize chat interface
