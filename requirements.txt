@@ -11,3 +11,4 @@ requests>=2.28.0
 reportlab>=3.6.2
 lxml>=4.9.0
 supabase
+st-copy
