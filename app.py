@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from supabase import create_client, Client
-
+from st_copy import copy_button
 # Local imports
 from tools.email_tool import EmailTool
 from tools.social_media_tool import SocialMediaAggregator
@@ -1441,7 +1441,7 @@ class ChatInterface:
         st.rerun()
     
     def display_messages(self) -> None:
-        """Display chat messages with special handling for emails"""
+        """Display chat messages with special handling for emails and copy functionality"""
         # Session state'deki mevcut dili kullan
         if 'current_language' in st.session_state:
             language = st.session_state.current_language
@@ -1476,8 +1476,23 @@ class ChatInterface:
                             language.value
                         )
                 else:
-                    st.write(message["content"])
-    
+                        # Use a more stable approach with columns
+                    content_col, copy_col = st.columns([0.95, 0.05],vertical_alignment="center") # 95% for content, 5% for button
+                    
+                    with content_col:
+                        st.markdown(message["content"])
+                    
+                    with copy_col:
+                        # Use a simpler, more stable key for the button.
+                        message_key = f"cp_{i}" 
+                        
+                        # The copy_button is now placed in its own pre-allocated column.
+                        copy_button(
+                            text=message["content"],
+                            tooltip="Copy" if language == Language.ENGLISH else "Kopyala",
+                            copied_label="✓",
+                            key=message_key,
+                        )
     def process_user_input(self, prompt: str) -> None:
         """Process user input and generate response"""
         # Add user message
@@ -2001,6 +2016,8 @@ def optimize_memory():
     
     # Force garbage collection
     gc.collect()
+
+
 
 # Add this call at the beginning of main() function:
 def main():
