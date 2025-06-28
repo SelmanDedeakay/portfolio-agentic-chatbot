@@ -18,55 +18,169 @@ class EmailTool:
         self.linkedin_url = "https://www.linkedin.com/in/selmandedeakayoğulları"
             
     def _send_confirmation_email(self, sender_email: str, sender_name: str, language: str = "en"):
-        """Send confirmation email to the sender"""
+        """Send confirmation email to the sender with HTML formatting"""
         try:
-            # Email signature
-            signature = f"""
-    Selman DEDEAKAYOĞULLARI
-    AI Engineer & Researcher
-
-    📧 Email: selmandedeakayogullari@gmail.com
-    🔗 LinkedIn: {self.linkedin_url}
-    🌐 Personal Website: https://selmandedeakay.github.io
-    """
-
+            profile_pic_url = "https://media.licdn.com/dms/image/v2/D4D03AQE-9IEPg1vluQ/profile-displayphoto-shrink_200_200/B4DZcehuzGHMAY-/0/1748563849423?e=1756339200&v=beta&t=Fr8w4e7RyKG7XTzGntmdamujLiyqy0nHO9h6rkTYltQ"
+            
             # Email content based on language
             if language == "tr":
-                subject = "Mesajınız Alındı"
-                body = f"""
-    Merhaba {sender_name},
-
-    Portföy chatbotum aracılığıyla gönderdiğiniz mesajınızı aldım. En kısa sürede size geri dönüş yapacağım.
-
-    Eğer acil bir durum varsa, benimle LinkedIn üzerinden iletişime geçebilirsiniz:
-    {self.linkedin_url}
-
-    Eğer böyle bir e-posta beklemiyorsanız, birisi yanlışlıkla sizin e-posta adresinizi girmiş olabilir. Lütfen bu mesajı görmezden gelin.
-    
-    Sevgiler,{signature}
-    """
+                subject = "✅ Mesajınız Alındı - Selman DEDEAKAYOĞULLARI"
+                greeting = f"Merhaba {sender_name},"
+                main_text = """
+                Portföy chatbotum aracılığıyla gönderdiğiniz mesajınızı aldım. En kısa sürede size geri dönüş yapacağım.
+                """
+                urgent_text = """
+                Eğer acil bir durum varsa, benimle LinkedIn üzerinden iletişime geçebilirsiniz.
+                """
+                disclaimer = """
+                Eğer böyle bir e-posta beklemiyorsanız, birisi yanlışlıkla sizin e-posta adresinizi girmiş olabilir. 
+                Lütfen bu mesajı görmezden gelin.
+                """
+                closing = "Sevgiler,"
+                linkedin_text = "LinkedIn'de Bağlan"
+                website_text = "Kişisel Website"
+                
             else:  # English
-                subject = "Your Message Has Been Received"
-                body = f"""
-    Hi {sender_name},
+                subject = "✅ Your Message Has Been Received - Selman DEDEAKAYOĞULLARI"
+                greeting = f"Hi {sender_name},"
+                main_text = """
+                I've received your message sent through my portfolio chatbot. I'll get back to you as soon as possible.
+                """
+                urgent_text = """
+                If this is urgent, you can contact me directly on LinkedIn.
+                """
+                disclaimer = """
+                If you did not expect this email, someone may have entered your email address by mistake. 
+                Please ignore this message.
+                """
+                closing = "Best regards,"
+                linkedin_text = "Connect on LinkedIn"
+                website_text = "Personal Website"
 
-    I've received your message sent through my portfolio chatbot. I'll get back to you as soon as possible.
-
-    If this is urgent, you can contact me directly on LinkedIn:
-    {self.linkedin_url}
-
-    If you did not expect this email, someone may have entered your email address by mistake. Please ignore this message.
-    
-    Best regards,{signature}
-    """
+            # HTML email template
+            html_body = f"""
+            <!DOCTYPE html>
+            <html lang="{'tr' if language == 'tr' else 'en'}">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>{subject}</title>
+            </head>
+            <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; line-height: 1.6;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; color: white;">
+                        <div style="margin-bottom: 20px;">
+                            <img src="{profile_pic_url}" 
+                                alt="Selman DEDEAKAYOĞULLARI" 
+                                style="width: 80px; height: 80px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.8); object-fit: cover;">
+                        </div>
+                        <h1 style="margin: 0; font-size: 24px; font-weight: 600;">Selman DEDEAKAYOĞULLARI</h1>
+                        <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">AI Engineer & Researcher</p>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="padding: 40px 30px;">
+                        <div style="margin-bottom: 30px;">
+                            <h2 style="color: #333; font-size: 20px; margin-bottom: 15px;">
+                                {greeting}
+                            </h2>
+                            <p style="color: #555; font-size: 16px; margin-bottom: 20px;">
+                                {main_text}
+                            </p>
+                            <p style="color: #555; font-size: 16px; margin-bottom: 20px;">
+                                {urgent_text}
+                            </p>
+                        </div>
+                        
+                        <!-- Contact Links -->
+                        <div style="margin: 30px 0; text-align: center;">
+                            <div style="display: inline-block; margin: 0 10px;">
+                                <a href="{self.linkedin_url}" 
+                                style="display: inline-block; background-color: #0077b5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: 500; transition: background-color 0.3s;">
+                                    🔗 {linkedin_text}
+                                </a>
+                            </div>
+                            <div style="display: inline-block; margin: 0 10px;">
+                                <a href="https://selmandedeakay.github.io" 
+                                style="display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: 500; transition: background-color 0.3s;">
+                                    🌐 {website_text}
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <!-- Contact Info -->
+                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
+                            <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">📧 Contact Information</h3>
+                            <p style="color: #666; margin: 5px 0; font-size: 14px;">
+                                <strong>Email:</strong> selmandedeakayogullari@gmail.com
+                            </p>
+                            <p style="color: #666; margin: 5px 0; font-size: 14px;">
+                                <strong>LinkedIn:</strong> <a href="{self.linkedin_url}" style="color: #0077b5; text-decoration: none;">{self.linkedin_url}</a>
+                            </p>
+                            <p style="color: #666; margin: 5px 0; font-size: 14px;">
+                                <strong>Website:</strong> <a href="https://selmandedeakay.github.io" style="color: #28a745; text-decoration: none;">selmandedeakay.github.io</a>
+                            </p>
+                        </div>
+                        
+                        <div style="margin-top: 30px;">
+                            <p style="color: #333; font-size: 16px; margin-bottom: 10px;">
+                                {closing}
+                            </p>
+                            <p style="color: #667eea; font-weight: 600; font-size: 16px;">
+                                Selman DEDEAKAYOĞULLARI
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="background-color: #f8f9fa; padding: 20px 30px; border-top: 1px solid #e9ecef;">
+                        <p style="color: #6c757d; font-size: 12px; margin: 0; text-align: center;">
+                            {disclaimer}
+                        </p>
+                        <p style="color: #6c757d; font-size: 12px; margin: 10px 0 0 0; text-align: center;">
+                            This email was automatically sent by the AI Portfolio Assistant.
+                        </p>
+                    </div>
+                    
+                </div>
+            </body>
+            </html>
+            """
 
             # Create confirmation message
-            msg = MIMEMultipart()
+            msg = MIMEMultipart('alternative')
             msg['From'] = self.email_user
             msg['To'] = sender_email
             msg['Subject'] = subject
             
-            msg.attach(MIMEText(body, 'plain'))
+            # Create plain text version as fallback
+            plain_text = f"""
+    {greeting}
+
+    {main_text}
+
+    {urgent_text}
+
+    {closing}
+
+    Selman DEDEAKAYOĞULLARI
+    AI Engineer & Researcher
+
+    Email: selmandedeakayogullari@gmail.com
+    LinkedIn: {self.linkedin_url}
+    Website: https://selmandedeakay.github.io
+
+    {disclaimer}
+            """
+            
+            # Attach both plain text and HTML versions
+            text_part = MIMEText(plain_text, 'plain', 'utf-8')
+            html_part = MIMEText(html_body, 'html', 'utf-8')
+            
+            msg.attach(text_part)
+            msg.attach(html_part)
             
             # Send confirmation email
             server = smtplib.SMTP(self.smtp_server, self.smtp_port)
@@ -77,7 +191,6 @@ class EmailTool:
             
         except Exception as e:
             print(f"Failed to send confirmation email: {str(e)}")
-    
     def send_email(self, sender_name: str, sender_email: str, subject: str, message: str) -> Dict[str, Any]:
         """Send email via SMTP"""
         try:

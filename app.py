@@ -1104,7 +1104,6 @@ class GeminiEmbeddingRAG:
         return similarities[:top_k]
     
 # Ana kodda _build_prompt fonksiyonunu güncelleyin:
-
     def _build_prompt(self, query: str, context: str, language: Language, recent_context: str) -> str:
         """Build appropriate prompt based on language"""
         if language == Language.TURKISH:
@@ -1124,10 +1123,13 @@ class GeminiEmbeddingRAG:
     - Birisi Selman ile iletişime geçmek istediğinde, prepare_email aracını KULLANMADAN ÖNCE şu bilgilerin TAMAMINI toplayın:
     1. Gönderenin tam adı (ad ve soyad gerekli.)
     2. Gönderenin e-posta adresi
-    3. Mesaj içeriği
+    3. Mesaj içeriği (kullanıcının tam mesajını AYNEN ALMA, bunun yerine profesyonel bir şekilde yeniden formülle)
     - Bu bilgilerden HERHANGİ BİRİ eksikse, önce eksik bilgileri isteyin
     - Örnek: "E-posta gönderebilmem için adınızı, soyadınızı ve e-posta adresinizi öğrenebilir miyim?"
     - TÜM bilgiler toplandıktan SONRA prepare_email aracını kullanın
+    - MESAJ FORMATLAMASI: Kullanıcının mesajını olduğu gibi kopyalama. Bunun yerine üçüncü şahıs bakış açısıyla profesyonel bir şekilde özetle ve yeniden formülle.
+    - Örnek: <ad,soyad> "3 haziran toplantı yapalım" derse → "<ad,soyad> 3 Haziran tarihinde bir toplantı düzenlemek istiyor."
+    - Örnek: <ad,soyad> "projelerinizle ilgili konuşalım" derse → "<ad,soyad> projeleriniz hakkında görüşme yapmak istiyor."
 
     İŞ UYUMLULUK ANALİZİ KURALLARI - ÇOK ÖNEMLİ:
     - Birisi bir iş tanımı sağladığında veya belirli bir rol için uygunluk hakkında soru sorduğunda, analyze_job_compatibility aracını kullanmadan ÖNCE rapor dilini sor
@@ -1168,10 +1170,13 @@ class GeminiEmbeddingRAG:
     - When someone wants to contact Selman, BEFORE using prepare_email tool, collect ALL of the following:
     1. Sender's full name (first and last name required)
     2. Sender's email address
-    3. Message content
+    3. Message content (DO NOT copy user's exact message, instead reformulate it professionally)
     - If ANY of this information is missing, ask for the missing details first
     - Example: "I'd be happy to help you contact Selman. Could you please provide your full name and email address?"
     - ONLY use prepare_email tool after ALL information is collected
+    - MESSAGE FORMATTING: Do not copy the user's message verbatim. Instead, reformulate and summarize it professionally from a third-person perspective.
+    - Example: <name,surname> says "let's meet on June 3rd" → "<name,surname> would like to schedule a meeting on June 3rd."
+    - Example: <name,surname> says "I want to discuss your projects" → "<name,surname> is interested in discussing your projects."
 
     JOB COMPATIBILITY ANALYSIS RULES - VERY IMPORTANT:
     - When someone provides a job description or asks about fit for a specific role, BEFORE using analyze_job_compatibility tool, ask for report language preference
