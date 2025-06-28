@@ -165,7 +165,8 @@ class ToolDefinitions:
                     "data": {
                         "posts": posts,
                         "formatted_response": formatted_posts,
-                        "count": len(posts)
+                        "count": len(posts),
+                        "render_cards": True  # 👈 BU SATIRI EKLE
                     }
                 }
 
@@ -174,7 +175,6 @@ class ToolDefinitions:
                     "success": False,
                     "message": f"Error retrieving posts: {str(e)}"
                 }
-
         elif tool_name == "generate_compatibility_pdf":
             try:
                 # Get report content and job title from session state

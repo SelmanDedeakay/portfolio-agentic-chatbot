@@ -1259,7 +1259,13 @@ class GeminiEmbeddingRAG:
             return "EMAIL_PREPARED_FOR_REVIEW"
         
         elif tool_name == "get_recent_posts":
-            return result["data"]["formatted_response"]
+    # Store posts data for rendering cards
+            if result["data"].get("render_cards", False):
+                st.session_state.social_media_posts = result["data"]["posts"]
+                return "SOCIAL_MEDIA_POSTS_READY"  # 👈 BU ÖZEL RETURN
+            else:
+                return result["data"]["formatted_response"]
+        
         
         return None
     
@@ -1581,6 +1587,36 @@ class ChatInterface:
                     "role": "assistant", 
                     "content": message
                 })
+                
+            elif response == "SOCIAL_MEDIA_POSTS_READY":  # 👈 YENİ CASE
+                # Render social media cards
+                if "social_media_posts" in st.session_state:
+                    posts = st.session_state.social_media_posts
+                    
+                    # Render beautiful cards
+                    self.rag_system.social_media_aggregator.render_posts_cards(
+                        posts, 
+                        language.value
+                    )
+                    
+                    # Also add text response to chat history for context
+                    formatted_text = self.rag_system.social_media_aggregator.format_posts_for_chat(
+                        posts, 
+                        language.value
+                    )
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": formatted_text
+                    })
+                    
+                    # Clean up
+                    del st.session_state.social_media_posts
+                else:
+                    st.write("📭 No posts found")
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": "📭 No posts found"
+                    })    
             
             else:
                 st.write(response)
@@ -1790,7 +1826,7 @@ def render_header_popovers():
                 
                 **📱 Social Updates** - I can get you Selman's recent posts and articles.
                 
-                **🎯 More advanced Features coming soon!**
+                **🎯 More advanced features coming soon!**
                 """)
     
     with col2:
