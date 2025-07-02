@@ -341,6 +341,7 @@ class QueryType:
     is_experience_query: bool = False
     is_education_query: bool = False
     is_contact_query: bool = False
+    is_awards_query: bool = False
 
 
 class EmbeddingCache:
@@ -623,7 +624,10 @@ class QueryClassifier:
         'contact', 'email', 'reach', 'get in touch', 'message', 
         'iletişim', 'ulaş', 'mesaj', 'e-posta', 'mail'
     }
-    
+    AWARDS_KEYWORDS = {
+        'award', 'awards', 'prize', 'competition', 'contest', 'achievement',
+        'ödül', 'ödüller', 'yarışma', 'başarı', 'kazandı', 'aldı', 'ödüllü'
+    }
     @classmethod
     def classify(cls, query: str) -> QueryType:
         """Classify query into different types"""
@@ -635,7 +639,8 @@ class QueryClassifier:
             is_project_query=any(kw in query_lower for kw in cls.PROJECT_KEYWORDS),
             is_experience_query=any(kw in query_lower for kw in cls.EXPERIENCE_KEYWORDS),
             is_education_query=any(kw in query_lower for kw in cls.EDUCATION_KEYWORDS),
-            is_contact_query=any(kw in query_lower for kw in cls.CONTACT_KEYWORDS)
+            is_contact_query=any(kw in query_lower for kw in cls.CONTACT_KEYWORDS),
+            is_awards_query=any(kw in query_lower for kw in cls.AWARDS_KEYWORDS) 
         )
 
 
@@ -734,6 +739,17 @@ Keywords: project, proje, {project.get('technology', '').lower()}, {project.get(
             if isinstance(skill_list, list):
                 skills_text += f"{category}: {', '.join(skill_list)}\n"
         return skills_text
+    @staticmethod
+    def build_awards_chunk(award: Dict[str, Any]) -> str:
+        """Build award chunk with enhanced keywords"""
+        award_text = f"""Award / Ödül:
+    Award Name/Ödül Adı: {award.get('name', 'N/A')}
+    Organization/Organizasyon: {award.get('organization', 'N/A')}
+    Description/Açıklama: {award.get('description', 'N/A')}
+    Year/Yıl: {award.get('year', 'N/A')}
+    Keywords: award, ödül, prize, yarışma, competition, achievement, başarı, kazandı, {award.get('name', '').lower()}, {award.get('organization', '').lower()}"""
+        
+        return award_text
 @st.cache_data
 def get_cached_system_text(language_code: str) -> Dict[str, str]:
     """Cached version of system text to avoid repeated calls"""
@@ -880,7 +896,19 @@ class GeminiEmbeddingRAG:
             for project in projects:
                 summary += f"- {project.get('name', 'N/A')} ({project.get('technology', 'N/A')})\n"
             chunks.append(summary)
-        
+        if awards := data.get('awards', []):
+            for award in awards:
+                chunks.append(self.chunk_builder.build_awards_chunk(award))
+            
+            # Awards summary chunk ekleyin
+            summary = "All Awards and Achievements / Tüm Ödüller ve Başarılar:\n"
+            for i, award in enumerate(awards, 1):
+                summary += f"{i}. {award.get('name', 'N/A')} - {award.get('organization', 'N/A')}"
+                if year := award.get('year'):
+                    summary += f" ({year})"
+                summary += "\n"
+            summary += "\nKeywords: all awards, tüm ödüller, achievements, başarılar, competitions, yarışmalar"
+            chunks.append(summary)
         # Awards
         for award in data.get('awards', []):
             award_text = f"Award: {award.get('name', 'N/A')}\n"
@@ -1042,6 +1070,13 @@ class GeminiEmbeddingRAG:
         keyword_mappings = {
             'proje': ['project', 'proje'],
             'projects': ['project', 'proje'],
+             'ödül': ['award', 'ödül', 'prize', 'achievement', 'başarı'],
+        'ödüller': ['award', 'ödül', 'prize', 'achievement', 'başarı'],
+        'award': ['award', 'ödül', 'prize', 'achievement', 'başarı'],
+        'awards': ['award', 'ödül', 'prize', 'achievement', 'başarı'],
+        'yarışma': ['competition', 'contest', 'yarışma', 'award', 'ödül'],
+        'kazandı': ['won', 'achieved', 'award', 'ödül', 'başarı'],
+        'başarı': ['achievement', 'success', 'award', 'ödül', 'başarı'],
             'deneyim': ['experience', 'deneyim', 'work', 'iş'],
             'experience': ['experience', 'deneyim', 'work', 'iş'],
             'work': ['experience', 'deneyim', 'work', 'iş'],
