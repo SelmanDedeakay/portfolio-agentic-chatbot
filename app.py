@@ -1038,16 +1038,16 @@ class GeminiEmbeddingRAG:
                     # Save to cache
                     with st.spinner(system_text["saving_to_cache"]):
                         if self.cache.save_to_cache(self.json_path, self.cv_chunks, self.cv_embeddings, language):
-                            st.success(system_text["cache_success"].format(count=len(self.cv_chunks)))
+                            print(system_text["cache_success"].format(count=len(self.cv_chunks)))
                         else:
-                            st.warning(system_text["cache_save_failed"])
+                            print(system_text["cache_save_failed"])
                 else:
-                    st.error(system_text["embedding_generation_failed"])
+                    print(system_text["embedding_generation_failed"])
                     self.cv_embeddings = np.array([])
                     
         except Exception as e:
             system_text = get_cached_system_text(language.value)
-            st.error(system_text["embedding_generation_failed"])
+            print(system_text["embedding_generation_failed"])
             self.cv_embeddings = np.array([])
     
     def clear_cache(self) -> None:

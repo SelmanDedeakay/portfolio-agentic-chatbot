@@ -218,7 +218,7 @@ class SocialMediaAggregator:
         return self.get_medium_posts(limit_per_platform)
     
     def render_posts_cards(self, posts: List[Dict[str, Any]], language: str = "en") -> None:
-        """Render responsive cards with mobile optimization"""
+        """Render responsive cards with mobile optimization and dark mode support"""
         if not posts:
             st.info("📭 No posts found")
             return
@@ -253,11 +253,11 @@ class SocialMediaAggregator:
         </div>
         """, unsafe_allow_html=True)
         
-        # Responsive CSS
+        # Geliştirilmiş dark mode CSS
         st.markdown("""
     <style>
     .responsive-card {
-        background: white;
+        background: #ffffff;
         border-radius: 12px;
         padding: 0;
         margin: 16px 0;
@@ -266,22 +266,64 @@ class SocialMediaAggregator:
         overflow: hidden;
         border: 1px solid #e1e5e9;
     }
+
+    /* Dark mode support - daha spesifik selectors */
+    .stApp[data-theme="dark"] .responsive-card,
+    [data-theme="dark"] .responsive-card,
+    .stApp.dark-theme .responsive-card,
+    .dark-theme .responsive-card,
+    body[data-theme="dark"] .responsive-card,
+    html[data-theme="dark"] .responsive-card {
+        background: #1e1e1e !important;
+        border: 1px solid #333 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+    }
+
+    /* Media query ile dark mode algılama */
+    @media (prefers-color-scheme: dark) {
+        .responsive-card {
+            background: #1e1e1e !important;
+            border: 1px solid #333 !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+        }
+    }
+
     .responsive-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     }
+
+    /* Dark mode hover effects */
+    .stApp[data-theme="dark"] .responsive-card:hover,
+    [data-theme="dark"] .responsive-card:hover,
+    .stApp.dark-theme .responsive-card:hover,
+    .dark-theme .responsive-card:hover,
+    body[data-theme="dark"] .responsive-card:hover,
+    html[data-theme="dark"] .responsive-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .responsive-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+        }
+    }
+
     .card-img {
         width: 100%;
         height: 160px;
         object-fit: cover;
         transition: transform 0.3s ease;
     }
+
     .responsive-card:hover .card-img {
         transform: scale(1.05);
     }
+
     .card-body {
         padding: 16px;
     }
+
     .card-title {
         font-size: 16px;
         font-weight: 600;
@@ -295,11 +337,45 @@ class SocialMediaAggregator:
         word-wrap: break-word;
         hyphens: auto;
     }
+
+    /* Dark mode text colors - daha güçlü selectors */
+    .stApp[data-theme="dark"] .card-title,
+    [data-theme="dark"] .card-title,
+    .stApp.dark-theme .card-title,
+    .dark-theme .card-title,
+    body[data-theme="dark"] .card-title,
+    html[data-theme="dark"] .card-title {
+        color: #ffffff !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .card-title {
+            color: #ffffff !important;
+        }
+    }
+
     .card-meta {
         font-size: 14px;
         color: #666;
         margin: 8px 0;
     }
+
+    /* Dark mode meta text */
+    .stApp[data-theme="dark"] .card-meta,
+    [data-theme="dark"] .card-meta,
+    .stApp.dark-theme .card-meta,
+    .dark-theme .card-meta,
+    body[data-theme="dark"] .card-meta,
+    html[data-theme="dark"] .card-meta {
+        color: #cccccc !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .card-meta {
+            color: #cccccc !important;
+        }
+    }
+
     .read-link {
         display: block;
         width: 100%;
@@ -316,42 +392,32 @@ class SocialMediaAggregator:
         border: none;
         outline: none;
     }
+
     .read-link:hover {
         background: #0052a3 !important;
         text-decoration: none !important;
         color: white !important;
     }
-    .read-link:visited {
-        color: white !important;
-        text-decoration: none !important;
-    }
-    .read-link:focus {
-        color: white !important;
-        text-decoration: none !important;
-        outline: none;
-    }
+
+    .read-link:visited,
+    .read-link:focus,
     .read-link:active {
         color: white !important;
         text-decoration: none !important;
     }
-    
+
     /* Global link override for this component */
     .responsive-card a {
         text-decoration: none !important;
     }
-    .responsive-card a:hover {
-        text-decoration: none !important;
-    }
-    .responsive-card a:visited {
-        text-decoration: none !important;
-    }
-    .responsive-card a:focus {
-        text-decoration: none !important;
-    }
+
+    .responsive-card a:hover,
+    .responsive-card a:visited,
+    .responsive-card a:focus,
     .responsive-card a:active {
         text-decoration: none !important;
     }
-    
+
     /* Mobile optimizations */
     @media (max-width: 768px) {
         .responsive-card {
@@ -364,22 +430,22 @@ class SocialMediaAggregator:
             padding: 12px;
         }
         .card-title {
-            font-size: 8px;
+            font-size: 15px;
             line-height: 1.3;
             -webkit-line-clamp: 3;
             max-height: 3.9em;
         }
         .card-meta {
-            font-size: 17px;
+            font-size: 13px;
             margin: 6px 0;
         }
         .read-link {
             padding: 10px 12px;
-            font-size: 6px;
+            font-size: 13px;
         }
     }
-    
-    /* Extra small screens (embedded chatbot) */
+
+    /* Extra small screens */
     @media (max-width: 480px) {
         .responsive-card {
             margin: 8px 0;
@@ -392,12 +458,12 @@ class SocialMediaAggregator:
             padding: 10px;
         }
         .card-title {
-            font-size: 8px;
+            font-size: 14px;
             line-height: 1.25;
             margin: 0 0 6px 0;
         }
         .card-meta {
-            font-size: 7px;
+            font-size: 12px;
             margin: 6px 0 8px 0;
         }
         .read-link {
@@ -406,29 +472,37 @@ class SocialMediaAggregator:
             margin-top: 8px;
         }
     }
+
+    /* Mobile single column layout */
+    @media (max-width: 480px) {
+        .element-container .stColumns {
+            flex-direction: column !important;
+        }
+        .element-container .stColumns > div {
+            width: 100% !important;
+            margin-right: 0 !important;
+        }
+    }
     </style>
     """, unsafe_allow_html=True)
         
-        # Check screen size and create appropriate layout
+        # Rest of the function remains the same...
         col1, col2 = st.columns(2, gap="medium")
         
         for i, post in enumerate(posts):
-            # Use single column on mobile by alternating normally on desktop
             col = col1 if i % 2 == 0 else col2
             
             with col:
                 read_text = "Read Article" if language == "en" else "Makaleyi Oku"
-                
-                # Enhanced title truncation for mobile
                 safe_title = post['title'].replace('"', '&quot;').replace("'", '&#39;')
                 
                 card_html = f"""
                 <div class="responsive-card">
                     <img src="{post['thumbnail']}" 
-                         class="card-img" 
-                         alt="{safe_title}"
-                         loading="lazy"
-                         onerror="this.src='data:image/svg+xml;base64,{self._create_fallback_image()}'">
+                        class="card-img" 
+                        alt="{safe_title}"
+                        loading="lazy"
+                        onerror="this.src='data:image/svg+xml;base64,{self._create_fallback_image()}'">
                     <div class="card-body">
                         <h4 class="card-title" title="{safe_title}">{post['title']}</h4>
                         <p class="card-meta">📝 {post['platform']} • {post['published']} • {post['reading_time']}</p>
@@ -438,21 +512,6 @@ class SocialMediaAggregator:
                 """
                 
                 st.markdown(card_html, unsafe_allow_html=True)
-        
-        # Mobile-specific single column layout alternative
-        st.markdown("""
-        <style>
-        @media (max-width: 480px) {
-            .element-container .stColumns {
-                flex-direction: column !important;
-            }
-            .element-container .stColumns > div {
-                width: 100% !important;
-                margin-right: 0 !important;
-            }
-        }
-        </style>
-        """, unsafe_allow_html=True)
     
     def _create_fallback_image(self) -> str:
         """Create fallback image"""
