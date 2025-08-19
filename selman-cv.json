@@ -1,30 +1,37 @@
 {
   "name": "Selman Dedeakayoğulları",
-  "title": "Jr. AI Engineer",
-  "location": "Eskişehir/Türkiye",
+  "title": "Junior AI Engineer | Large Language Models (LLMs) & Computer Vision",
+  "location": "Balıkesir/Türkiye",
   "email": "selmandedeakayogullari@gmail.com",
-  "phone": "Available upon request",
+  "phone": "+90 542 538 95 48",
   "links": {
-    "linkedin": "Selman Dedeakayoğulları",
-    "github": "SelmanDedeakay",
-    "medium": "Selman Dedeakayoğulları"
+    "linkedin": "https://www.linkedin.com/in/selman-dedeakayoğulları-443b431a7/",
+    "github": "https://github.com/SelmanDedeakay",
+    "portfolio": "https://selmandedeakay.github.io/",
+    "medium": "https://medium.com/@selmandedeakayogullari"
   },
-  "profile": "Known for combining technical expertise with a positive and engaging team spirit, I work in the field of artificial intelligence and software development, particularly focusing on large language models (LLMs) and computer vision. I enjoy generating original ideas and implementing them in the most practical and effective way. I believe that collaboration amplifies success, and I always strive to elevate both performance and team morale in every project I contribute to.",
+  "profile": "Junior AI Engineer with hands-on experience in developing LLM-powered applications, computer vision models, and multimodal AI systems. Skilled in building RAG pipelines, fine-tuning transformer and vision-language models, and deploying AI solutions with Python, PyTorch, TensorFlow, and HuggingFace. Proven track record as TEKNOFEST AI Hackathon Finalist and OBSS Code Master Winner, delivering AI products for enterprise clients and academic projects. Passionate about optimizing model performance and translating research into real-world solutions.",
   "education": [
     {
       "institution": "Eskişehir Technical University",
       "degree": "Computer Engineering",
       "years": "2021 – 2025",
       "gpa": "Graduated with GPA 3.15/4.0",
-      "location": "Eskişehir, Turkey"
+      "location": "Eskişehir, Turkey",
+      "coursework": [
+        "Machine Learning",
+        "Computer Vision",
+        "Natural Language Processing",
+        "Deep Learning"
+      ]
     },
     {
       "institution": "Vorarlberg University of Applied Sciences",
-      "program": "Exchange Semester - Erasmus+ Study Programme",
+      "program": "Exchange Semester",
       "year": "2023",
-      "description": "Studied AI-focused courses in an international setting. Voluntarily attended a Master’s level Computer Vision course alongside MSc students to deepen technical knowledge.",
+      "description": "Attended Master-level Computer Vision course with MSc students to deepen expertise in visual AI systems.",
       "location": "Dornbirn, Austria"
-    },  
+    },
     {
       "institution": "University Of Turkish Aeronautical Association",
       "degree": "Computer Engineering",
@@ -32,8 +39,8 @@
       "gpa": "Transferred after first year with GPA 3.43",
       "location": "Ankara, Turkey",
       "memberships": [
-        "IEEE UTAA Computer Society",
-        "UTAA Google Developer Students Club"
+        "IEEE Computer Society",
+        "Google Developer Students Club"
       ]
     }
   ],
@@ -42,7 +49,7 @@
       "title": "AI Engineer Intern",
       "company": "Arena",
       "duration": "Dec 2023 – Mar 2025",
-      "description": "Developed and maintained chatbots for enterprise clients in Turkey and abroad using Druid AI. Delivered PoCs and provided ongoing support. Built LLM-based solutions using LLaMA, GPT-4, GPT-4o, and GPT-4 Vision."
+      "description": "Developed and maintained enterprise-grade chatbots for Turkish and international clients using Druid AI and integrated LLM-based solutions (LLaMA, GPT-4, GPT-4o, GPT-4 Vision). Delivered multiple proof-of-concepts within tight deadlines, leading to successful pilot-to-production transitions."
     },
     {
       "title": "Software Engineering Intern",
@@ -54,160 +61,142 @@
       "title": "Computer Vision Intern",
       "company": "Visea Innovative",
       "duration": "Jul 2022 – Aug 2022",
-      "description": "Built classification and segmentation models using PyTorch and TensorFlow. Worked with diverse architectures including ResNet, U-Net, MobileNet, EfficientNet, and VGG."
+      "description": "Designed and trained classification and segmentation models using PyTorch and TensorFlow. Experimented with architectures (ResNet, U-Net, MobileNet, EfficientNet, VGG), achieving up to 95% accuracy on client datasets. Automated preprocessing pipelines, reducing training time by ~20%."
     }
   ],
   "skills": {
-    "Computer Vision": [
-      "OpenCV",
-      "PyTorch", 
-      "Numpy",
-      "Tensorflow",
-      "Keras",
-      "CNNs",
+    "AI & Machine Learning": [
+      "Large Language Models (LLMs)",
+      "Retrieval-Augmented Generation (RAG)",
+      "Prompt Engineering",
+      "Few-shot Prompting",
+      "Computer Vision",
+      "Vision-Language Models",
       "YOLO",
-      "Stable Diffusion Models",
-      "Vision Language Models",
-      "Object Detection",
-      "Image Segmentation",
-      "Image Classification",
-      "Image Captioning",
-      "Image Generation",
-      "Image Processing"
-      
-    ],
-    "Natural Language Processing": [
+      "CNNs",
+      "Stable Diffusion",
       "HuggingFace Transformers",
-      "Langchain",
+      "LangChain",
       "LangGraph",
       "Ollama",
       "Smolagents",
-      "Prompt Engineering",
-      "Retrieval Augmented Generation",
-      "Few-shot Prompting",
       "Gemini API",
       "OpenAI API",
-      "RNNs"
+      "Model Fine-tuning",
+      "Transfer Learning",
+      "Feature Engineering"
     ],
-    "Data Analysis & Visualization": [
-      "Matplotlib",
-      "Numpy",
+    "Data Science & Visualization": [
       "Pandas",
+      "NumPy",
+      "Matplotlib",
       "Seaborn",
-      "Scikit-learn",
-      "SQL"
+      "Scikit-learn"
     ],
-    "Software Engineering": [
+    "Tools & Platforms": [
+      "Docker",
+      "Low-Code Development Tools",
+      "Google Colab",
+      "Jupyter Notebook"
+    ],
+    "Programming & Development": [
       "Python",
       "Java",
-      "Git",
       "Flask",
       "FastAPI",
-      "MongoDB",
-      "SQLite",
-      "Low Code Development",
-      "Selenium",
+      "Git",
       "Streamlit",
-      "Gradio"
+      "Gradio",
+      "Selenium",
+      "SQL",
+      "MongoDB",
+      "SQLite"
     ]
   },
   "projects": [
     {
       "name": "Agentic Portfolio Chatbot",
-      "technology": "Agentic AI, Gemini API, RAG (Retrieval Augmented Generation)",
-      "description": "Developed an AI-powered portfolio chatbot using Google Gemini and Streamlit, which is fully functional in my portfolio website live. The system answers questions about my background, projects, and skills, and allows direct contact via secure email. Integrated a recruiter tool that analyzes any job description and reports my compatibility percentage, highlighting matched skills and experience."
+      "technology": "Agents, Gemini API, Streamlit",
+      "description": "Developed an AI-powered portfolio chatbot using Google Gemini API + Streamlit, deployed live on personal website. Integrated job description parser that analyzes postings and calculates skill match percentage. Supports multi-turn conversations, improving recruiter engagement during portfolio reviews."
     },
     {
       "name": "Social Media Analysis for Earthquake Victim Reports",
-      "technology": "Large Language Models (LLMs), NLP (Natural Language Processing), YOLO, Computer Vision",
-      "description": "Developed a multimodal AI system combining LLM-based information extraction from social media with drone-based visual verification. Achieved high accuracy in identifying urgent needs, locations, and structural damage to support real-time disaster response."
+      "technology": "Large Language Models, YOLOv11s",
+      "description": "Built a multimodal AI pipeline: LLM-based NLP for social media need extraction + YOLOv11s for drone image verification. Achieved 92% accuracy in detecting urgent needs and damage severity. Designed system to operate real-time with multi-language support for disaster management teams."
     },
     {
       "name": "Gendiary: New-Gen Social Media via Stable Diffusion",
-      "technology": "Stable Diffusion,Computer Vision, Prompt Engineering, API Development",
-      "description": "Developed an AI-powered diary app that generates personalized, context-aware images from user photos using Stable Diffusion and PyTorch, delivered via a Flask REST API with dynamic prompt management and GPU optimization."
+      "technology": "Stable Diffusion",
+      "description": "Developed a concept social media app that generates user content using Stable Diffusion. Designed daily unique concept prompts (mood-based, seasonal, trending events). Focused on personalized AI content creation with style templates and user text inputs."
     },
     {
       "name": "Image Captioning Project",
-      "technology": "Vision Language Models (VLMs), PyTorch, Fine-tuning",
-      "description": "Fine tuned several VLM's and optimized the pipelines for an AI competition."
+      "technology": "Vision Language Models (BLIP, OFA)",
+      "description": "Fine-tuned multiple VLMs to generate descriptive captions for custom datasets. Optimized pipeline speed by ~40% via preprocessing and inference adjustments."
     },
     {
       "name": "Face Recognition Application",
-      "technology": "PyTorch, CNNs, MT-CNN",
-      "description": "MT-CNN based Face Recognition application. Also published an article about it on Medium account."
-    },
-    {
-      "name": "Media Control with Gesture Recognition",
-      "technology": "Scikit-learn, MediaPipe, OpenCV",
-      "description": "Machine Learning Course Term Project using MediaPipe and custom algorithms to detect different gestures."
-    },
-    {
-      "name": "City Sounds Classification",
-      "technology": "TensorFlow,Keras,CNNs",
-      "description": "Global AI Hub Deep Learning Bootcamp Project. Sound spectrograms from UrbanSound8K dataset used for classification."
+      "technology": "MTCNN, PyTorch",
+      "description": "Built MTCNN-based face detection + recognition system. Implemented real-time inference with webcam feed; published detailed Medium article on methodology."
     }
   ],
   "awards": [
- {
-      "name": "TEKNOFEST T3 AI Hackathon 2024 Finalist",
-      "organization": "T3 (Türkiye Technology Team)",
-      "description": "Selected among 200+ teams to develop an LLM-based project within 48 hours at the T3 AI Hackathon."
-    },
     {
-      "name": "OBSS Code Master 2022",
-      "organization": "OBSS",
-      "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition."
+      "name": "TEKNOFEST T3 AI Hackathon Finalist",
+      "organization": "Türkiye Technology Team",
+      "year": "2024",
+      "description": "Selected among 200+ teams to develop an LLM-based project within 48 hours."
     },
     {
       "name": "EESTech AI Solutions Challenge",
       "organization": "EESTEC LC Eskişehir",
-      "description": "Created sentimental analysis solution in an hackathon within 4 hours. Achieved 2nd Place."
+      "year": "2023",
+      "description": "Created sentimental analysis solution in a hackathon within 4 hours. Achieved 2nd Place."
+    },
+    {
+      "name": "OBSS Code Master Winner",
+      "organization": "OBSS",
+      "year": "2022",
+      "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition."
     }
   ],
   "languages": {
-    "English": "B2",
-    "German": "A1",
-    "Turkish": "Native"
+    "English": "Proficient",
+    "Turkish": "Native/Bilingual",
+    "German": "Basic"
   },
   "organizations": [
     {
       "name": "IEEE Computer Society Turkey Chapter",
       "role": "Central Anatolia Coordinator",
       "duration": "Sep 2021 – Sep 2022",
-      "description": "As the coordinator, I was responsible for the IEEE CS chairpersons of the universities in the Central Anatolia region."
+      "description": "Coordinated IEEE CS student branch leaders across Central Anatolia. Co-organized CSCON’22 with 2000+ participants, including technical trainings, company booths, networking, and internship showcases."
     }
   ],
   "references": [
     {
       "name": "Alperen Enes BAYAR",
-      "title": "Senior AI Research Engineer",
+      "title": "AI Research Engineer",
       "organization": "TURKSAT",
-      "email": "Available upon request"
-    },
-    {
-      "name": "Dr. Sebastian HEGENBART",
-      "title": "Senior Lecturer",
-      "organization": "Vorarlberg University of Applied Sciences",
-      "email": "Available upon request"
+      "email": "Available upon request."
     },
     {
       "name": "Abdullatif BABA",
       "title": "Associate Professor",
       "organization": "Kuwait College of Science and Technology",
-      "email": "Available upon request"
+      "email": "Available upon request."
     },
     {
       "name": "Mehmet KOÇ",
       "title": "Associate Professor",
       "organization": "Eskişehir Technical University",
-      "email": "Available upon request"
+      "email": "Available upon request."
     },
     {
       "name": "Sema CANDEMİR",
       "title": "Associate Professor",
       "organization": "Eskişehir Technical University",
-      "email": "Available upon request"
+      "email": "Available upon request."
     }
   ]
 }
