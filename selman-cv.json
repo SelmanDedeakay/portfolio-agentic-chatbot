@@ -1,21 +1,19 @@
 {
   "name": "Selman Dedeakayoğulları",
-  "title": "Junior AI Engineer | Large Language Models (LLMs) & Computer Vision",
+  "title": "Junior Al Engineer | Large Language Models (LLMs) & Computer Vision",
   "location": "Balıkesir/Türkiye",
   "email": "selmandedeakayogullari@gmail.com",
   "phone": "+90 542 538 95 48",
   "links": {
-    "linkedin": "https://www.linkedin.com/in/selman-dedeakayoğulları-443b431a7/",
     "github": "https://github.com/SelmanDedeakay",
-    "portfolio": "https://selmandedeakay.github.io/",
-    "medium": "https://medium.com/@selmandedeakayogullari"
+    "portfolio": "https://selmandedeakay.github.io/"
   },
-  "profile": "Junior AI Engineer with hands-on experience in developing LLM-powered applications, computer vision models, and multimodal AI systems. Skilled in building RAG pipelines, fine-tuning transformer and vision-language models, and deploying AI solutions with Python, PyTorch, TensorFlow, and HuggingFace. Proven track record as TEKNOFEST AI Hackathon Finalist and OBSS Code Master Winner, delivering AI products for enterprise clients and academic projects. Passionate about optimizing model performance and translating research into real-world solutions.",
+  "profile": "Junior Al Engineer with hands-on experience in developing LLM-powered applications, computer vision models, and multimodal Al systems. Skilled in building RAG pipelines, fine-tuning transformer and and vision-language models, and deploying Al solutions with Python, PyTorch, TensorFlow, and HuggingFace. Proven track record as TEKNOFEST AI Hackathon Finalist and OBSS Code Master Winner, delivering Al products for enterprise clients and academic projects. Passionate about optimizing model performance and translating research into real-world solutions.",
   "education": [
     {
       "institution": "Eskişehir Technical University",
       "degree": "Computer Engineering",
-      "years": "2021 – 2025",
+      "years": "2021-2025",
       "gpa": "Graduated with GPA 3.15/4.0",
       "location": "Eskişehir, Turkey",
       "coursework": [
@@ -29,13 +27,13 @@
       "institution": "Vorarlberg University of Applied Sciences",
       "program": "Exchange Semester",
       "year": "2023",
-      "description": "Attended Master-level Computer Vision course with MSc students to deepen expertise in visual AI systems.",
+      "description": "Attended Master-level Computer Vision course with MSc students to deepen expertise in visual Al systems.",
       "location": "Dornbirn, Austria"
     },
     {
       "institution": "University Of Turkish Aeronautical Association",
       "degree": "Computer Engineering",
-      "years": "2020 – 2021",
+      "years": "2020-2021",
       "gpa": "Transferred after first year with GPA 3.43",
       "location": "Ankara, Turkey",
       "memberships": [
@@ -46,22 +44,28 @@
   ],
   "experience": [
     {
-      "title": "AI Engineer Intern",
+      "title": "Jr. Al Developer (Contractor)",
+      "company": "Legal-Pythia",
+      "duration": "Aug 2025 Present",
+      "description": "Developing and contributing to Al-driven solutions with a strong emphasis on legal technology and explainable Al. Engaging in global collaborations with NGOs and international partners to drive impactful, socially responsible projects. Strengthening expertise in software development and applied Al through cross-functional, cross-cultural teamwork."
+    },
+    {
+      "title": "Al Engineer Intern",
       "company": "Arena",
-      "duration": "Dec 2023 – Mar 2025",
-      "description": "Developed and maintained enterprise-grade chatbots for Turkish and international clients using Druid AI and integrated LLM-based solutions (LLaMA, GPT-4, GPT-4o, GPT-4 Vision). Delivered multiple proof-of-concepts within tight deadlines, leading to successful pilot-to-production transitions."
+      "duration": "Dec 2023 Mar 2025",
+      "description": "Developed and maintained enterprise-grade chatbots for Turkish and international clients using Druid Al and integrated LLM-based solutions (LLAMA, GPT-4, GPT-40, GPT-4 Vision). Delivered multiple proof-of-concepts within tight deadlines, leading to successful pilot-to-production transitions."
     },
     {
       "title": "Software Engineering Intern",
       "company": "Turkish Aerospace Industries",
-      "duration": "Nov 2022 – Jan 2023",
+      "duration": "Nov 2022 - Jan 2023",
       "description": "Contributed to backend development for various internal modules. Gained experience in large-scale systems. Left early due to Erasmus study abroad program."
     },
     {
       "title": "Computer Vision Intern",
       "company": "Visea Innovative",
-      "duration": "Jul 2022 – Aug 2022",
-      "description": "Designed and trained classification and segmentation models using PyTorch and TensorFlow. Experimented with architectures (ResNet, U-Net, MobileNet, EfficientNet, VGG), achieving up to 95% accuracy on client datasets. Automated preprocessing pipelines, reducing training time by ~20%."
+      "duration": "Jul 2022-Aug 2022",
+      "description": "Designed and trained classification and segmentation models using PyTorch and TensorFlow. Experimented with diverse architectures (ResNet, U-Net, MobileNet, EfficientNet, VGG), achieving up to 95% accuracy on client datasets. Automated preprocessing pipelines, reducing model training time by ~20%."
     }
   ],
   "skills": {
@@ -73,7 +77,7 @@
       "Computer Vision",
       "Vision-Language Models",
       "YOLO",
-      "CNNs",
+      "CNNS",
       "Stable Diffusion",
       "HuggingFace Transformers",
       "LangChain",
@@ -116,45 +120,45 @@
   "projects": [
     {
       "name": "Agentic Portfolio Chatbot",
-      "technology": "Agents, Gemini API, Streamlit",
-      "description": "Developed an AI-powered portfolio chatbot using Google Gemini API + Streamlit, deployed live on personal website. Integrated job description parser that analyzes postings and calculates skill match percentage. Supports multi-turn conversations, improving recruiter engagement during portfolio reviews."
+      "technology": "Agents&Gemini API",
+      "description": "Developed an Al-powered portfolio chatbot using Google Gemini API + Streamlit, deployed live on personal website. Integrated job description parser that analyzes postings and calculates skill match percentage. Supports multi-turn conversations, improving recruiter engagement during portfolio reviews."
     },
     {
       "name": "Social Media Analysis for Earthquake Victim Reports",
-      "technology": "Large Language Models, YOLOv11s",
-      "description": "Built a multimodal AI pipeline: LLM-based NLP for social media need extraction + YOLOv11s for drone image verification. Achieved 92% accuracy in detecting urgent needs and damage severity. Designed system to operate real-time with multi-language support for disaster management teams."
+      "technology": "Large Language Models",
+      "description": "Built a multimodal Al pipeline: LLM-based NLP for social media need extraction + YOLOv11s for drone image verification. Achieved 92% accuracy in detecting urgent needs and damage severity. Designed system to operate real-time with multi-language support for disaster management teams."
     },
     {
       "name": "Gendiary: New-Gen Social Media via Stable Diffusion",
       "technology": "Stable Diffusion",
-      "description": "Developed a concept social media app that generates user content using Stable Diffusion. Designed daily unique concept prompts (mood-based, seasonal, trending events). Focused on personalized AI content creation with style templates and user text inputs."
+      "description": "Developed a concept social media app that generates user content using Stable Diffusion. Designed daily unique concept prompts (e.g., mood-based, seasonal, trending events) to encourage user creativity and engagement. Focused on personalized Al content creation, integrating both visual style templates and user-provided text inputs."
     },
     {
       "name": "Image Captioning Project",
-      "technology": "Vision Language Models (BLIP, OFA)",
-      "description": "Fine-tuned multiple VLMs to generate descriptive captions for custom datasets. Optimized pipeline speed by ~40% via preprocessing and inference adjustments."
+      "technology": "Vision Language Models",
+      "description": "Fine-tuned multiple VLMs (BLIP, OFA) to generate descriptive captions for custom datasets. Optimized pipeline speed by ~40% via preprocessing and inference adjustments."
     },
     {
       "name": "Face Recognition Application",
-      "technology": "MTCNN, PyTorch",
+      "technology": "PyTorch",
       "description": "Built MTCNN-based face detection + recognition system. Implemented real-time inference with webcam feed; published detailed Medium article on methodology."
     }
   ],
   "awards": [
     {
-      "name": "TEKNOFEST T3 AI Hackathon Finalist",
-      "organization": "Türkiye Technology Team",
+      "name": "TEKNOFEST T3 Al Hackathon Finalist",
+      "organization": "T3 (Türkiye Technology Team)",
       "year": "2024",
-      "description": "Selected among 200+ teams to develop an LLM-based project within 48 hours."
+      "description": "Selected among 200+ teams to develop an LLM-based project within 48 hours at the T3 Al Hackathon."
     },
     {
-      "name": "EESTech AI Solutions Challenge",
+      "name": "EESTech Al Solutions Challenge",
       "organization": "EESTEC LC Eskişehir",
       "year": "2023",
-      "description": "Created sentimental analysis solution in a hackathon within 4 hours. Achieved 2nd Place."
+      "description": "Created sentimental analysis solution in an hackathon within 4 hours. Achieved 2nd Place."
     },
     {
-      "name": "OBSS Code Master Winner",
+      "name": "OBSS Code Master",
       "organization": "OBSS",
       "year": "2022",
       "description": "Ranked 1st among university participants in an algorithm-based problem-solving competition."
@@ -162,40 +166,36 @@
   ],
   "languages": {
     "English": "Proficient",
-    "Turkish": "Native/Bilingual",
-    "German": "Basic"
+    "German": "Basic",
+    "Turkish": "Native/Bilingual"
   },
   "organizations": [
     {
       "name": "IEEE Computer Society Turkey Chapter",
       "role": "Central Anatolia Coordinator",
-      "duration": "Sep 2021 – Sep 2022",
-      "description": "Coordinated IEEE CS student branch leaders across Central Anatolia. Co-organized CSCON’22 with 2000+ participants, including technical trainings, company booths, networking, and internship showcases."
+      "duration": "Sep 2021 Sep 2022",
+      "description": "Coordinated IEEE CS student branch leaders across Central Anatolia, organizing events, workshops, and conferences. Co-organized CSCON'22, Turkey's leading student-run Computer Society Congress, held on March 25-27, 2022 in Ankara. Hosted at ATO Congresium and Ankara University Gölbaşı Campus, the event included conference sessions, over 25 technical trainings, company booths, networking, and internship showcases. Attracted 2,000+ participants from across Turkey, offering exposure to academic and industry speakers."
     }
   ],
   "references": [
     {
       "name": "Alperen Enes BAYAR",
-      "title": "AI Research Engineer",
-      "organization": "TURKSAT",
+      "title": "AI Research Engineer, TURKSAT",
       "email": "Available upon request."
     },
     {
       "name": "Abdullatif BABA",
-      "title": "Associate Professor",
-      "organization": "Kuwait College of Science and Technology",
+      "title": "Associate Professor, Kuwait College of Science and Technology",
       "email": "Available upon request."
     },
     {
       "name": "Mehmet KOÇ",
-      "title": "Associate Professor",
-      "organization": "Eskişehir Technical University",
+      "title": "Associate Professor, Eskişehir Technical University",
       "email": "Available upon request."
     },
     {
       "name": "Sema CANDEMİR",
-      "title": "Associate Professor",
-      "organization": "Eskişehir Technical University",
+      "title": "Associate Professor, Eskişehir Technical University",
       "email": "Available upon request."
     }
   ]
